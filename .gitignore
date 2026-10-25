@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+# cards made by the offline tool
+*-cards*.html
+*-cards*.pdf
+*-index-cards*.html
+*-index-cards*.pdf
+cardforge-printer-test*.html
+cardforge-printer-test*.pdf

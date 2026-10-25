@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Forge</title>
+<style>
+@page { size: __PAGESIZE__; margin: 0; }
+:root {
+  --ink: #1f1a14;
+  --paper: #f8f1e0;
+  --gold: #e3c378;
+  --serif: "Palatino Linotype", "Book Antiqua", Palatino, "URW Palladio L", "P052", "TeX Gyre Pagella", Georgia, "DejaVu Serif", serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { background: #5d5d62; font-family: var(--serif); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+/* ---------- toolbar (screen only) ---------- */
+.bar { position: sticky; top: 0; z-index: 5; background: #24232a; color: #eee; font: 14px/1.4 system-ui, sans-serif;
+  padding: 10px 16px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.bar b { color: #fff; }
+.bar button { font: inherit; background: #e3c378; color: #222; border: 0; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-weight: 600; }
+.bar .tip { opacity: .8; font-size: 12.5px; }
+.bar .warn { color: #ffb4a0; }
+
+/* ---------- sheets ---------- */
+.sheet { position: relative; background: #fff; margin: 18px auto; box-shadow: 0 4px 18px rgba(0,0,0,.35); overflow: hidden;
+  break-after: page; page-break-after: always; }
+/* the inner layer is always the full page (the sheet itself is a hair shorter so no blank pages appear),
+   so a 180° turn for short-edge flipping pivots on the page's true centre */
+.sheet .inner { position: absolute; left: 0; top: 0; width: 100%; }
+.sheet .label { position: absolute; left: .25in; top: .08in; font: 8pt system-ui, sans-serif; color: #999; }
+.cell { position: absolute; }
+.cell > .panel, .cell > .fold { outline: .5pt solid #c9c9c9; }
+.cut { position: absolute; background: #8a8a8a; z-index: 3; pointer-events: none; }
+body.nogap .cell > .panel, body.nogap .cell > .fold, body.nogap .cell > .idxcard > .panel { outline: none; }
+body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
+.fold { position: absolute; left: 0; top: 0; width: 5in; height: 3.5in; display: flex; }
+/* fold line: a light dashed seam between the two halves */
+.fold.outside::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: .6pt dashed rgba(0,0,0,.35); z-index: 2; }
+
+@media print {
+  body { background: none; }
+  .bar { display: none; }
+  .sheet { margin: 0; box-shadow: none; }
+  .sheet .label { display: none; }
+}
+#sheets .sheet:last-child { break-after: auto; page-break-after: auto; }
+#measure { position: absolute; left: -30in; top: 0; visibility: hidden; }
+
+/* ---------- card panel ---------- */
+.panel { --c: #444; width: 2.5in; height: 3.5in; position: relative; background: var(--paper); color: var(--ink);
+  border-radius: .13in; overflow: hidden; font-family: var(--serif); line-height: 1.18; }
+.fold .panel.fl { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.fold .panel.fr { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.panel .frame { position: absolute; inset: .075in; border: 1.4pt solid var(--c); border-radius: .09in;
+  display: flex; flex-direction: column; padding: 0 .065in .03in; background:
+  radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.55), transparent 65%); }
+.fold .panel.fl .frame { right: .035in; border-top-right-radius: .02in; border-bottom-right-radius: .02in; }
+.fold .panel.fr .frame { left: .035in; border-top-left-radius: .02in; border-bottom-left-radius: .02in; }
+
+.ttl { background: var(--c); color: #fff; margin: 0 -.065in; padding: .035in .065in .03in; display: flex; align-items: center;
+  gap: .05in; border-radius: .06in .06in 0 0; }
+.ttl .name { flex: 1; font-size: 1.5em; font-weight: 700; font-variant: small-caps; letter-spacing: .02em; line-height: 1.02; }
+.ttl.small .name { font-size: 1.15em; }
+.ttl .name em { font-style: normal; font-weight: 400; opacity: .8; font-size: .8em; }
+.ttl .badge { flex: none; min-width: 1.9em; height: 1.9em; border-radius: 50%; background: #fff; color: var(--c); font-weight: 700;
+  display: flex; align-items: center; justify-content: center; font-size: 1em; padding: 0 .2em; box-shadow: 0 0 0 1.2pt var(--gold) inset; }
+.sub { font-style: italic; font-size: .95em; padding: .2em 0 .25em; border-bottom: .8pt solid var(--c); margin-bottom: .3em; }
+.hdr { margin-bottom: .3em; }
+.hdr:empty { display: none; }
+.sgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .18em .3em; }
+.sgrid > div { background: rgba(0,0,0,.045); border-radius: 2pt; padding: .15em .3em; font-size: .92em; }
+.lbl { display: block; font-size: .78em; text-transform: uppercase; letter-spacing: .06em; color: var(--c); font-weight: 700; }
+.mat { font-size: .82em; font-style: italic; margin-top: .25em; }
+.scrollinfo { font-size: .86em; margin-bottom: .3em; padding: .12em .35em; border: .8pt dashed var(--c); border-radius: 2pt;
+  background: rgba(122, 74, 28, .08); text-align: center; }
+.cls { font-size: .78em; margin-top: .2em; color: #555; }
+.mline { font-size: .95em; }
+.mline b { color: var(--c); }
+/* creature stat blocks: every stat, trait and action sits in its own outlined, lightly shaded box */
+.mgrid { display: flex; flex-wrap: wrap; gap: .2em; margin-bottom: .2em; }
+.mgrid > div, .abil > div, .body .mbox { border: .6pt solid rgba(122, 31, 31, .5); border-color: color-mix(in srgb, var(--c) 50%, transparent);
+  background: rgba(0, 0, 0, .055); border-radius: 2.5pt; }
+.mgrid > div { flex: 1 1 auto; padding: .1em .35em; font-size: .95em; }
+.mgrid b { color: var(--c); }
+.abil { display: grid; grid-template-columns: repeat(6, 1fr); gap: .2em; text-align: center; margin: 0 0 .1em; font-size: .86em; }
+.abil > div { padding: .06em 0 .1em; white-space: nowrap; }
+.abil .lbl { font-size: .85em; }
+.body .mbox { padding: .14em .35em; margin: 0 0 .25em; }
+.body .mbox > :last-child { margin-bottom: 0; }
+.body .mbox p { margin-bottom: .16em; }
+.body .mbox.mstat { text-align: left; padding: .08em .35em; margin-bottom: .2em; }
+.body .mbox.mstat b { color: var(--c); }
+.body .mbox.head { border-bottom-style: dashed; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.body .mbox.cont { border-top-style: dashed; border-top-left-radius: 0; border-top-right-radius: 0; }
+.body h4.sec + .mbox, .body h4.sec + p { margin-top: .3em; }
+
+.body { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.body p { margin: 0 0 .28em; text-align: justify; hyphens: auto; -webkit-hyphens: auto; }
+.body p.cont { text-indent: 0; }
+.body p.li { padding-left: .9em; text-indent: -.7em; margin-bottom: .18em; }
+.body p.li::before { content: "\2022\00a0"; color: var(--c); }
+.body p.li.cont::before { content: ""; }
+.body p.li.cont { text-indent: 0; }
+.body p.ind { padding-left: .8em; margin-bottom: .15em; }
+.body p.inset, .body h4.inset { background: rgba(0,0,0,.05); padding: .15em .35em; margin-bottom: 0; }
+.body p.quote { font-size: .95em; }
+.body p.r { text-align: right; }
+.body p.c { text-align: center; }
+.body p.small { font-size: .85em; }
+.body p.stat { margin-bottom: .1em; text-align: left; }
+.body p.stat b { color: var(--c); }
+.body h4 { margin: .25em 0 .2em; font-size: 1.08em; font-variant: small-caps; color: var(--c); border-bottom: .6pt solid var(--c); }
+.body h4.sec { font-size: 1.15em; }
+.body hr { border: 0; border-top: .8pt solid var(--c); margin: .3em 0; }
+.body table { width: 100%; border-collapse: collapse; margin: .15em 0 .35em; font-size: .9em; }
+.body caption { font-weight: 700; text-align: left; padding-bottom: .1em; }
+.body th { text-align: left; border-bottom: .8pt solid var(--c); padding: .05em .2em; color: var(--c); }
+.body td { padding: .05em .2em; vertical-align: top; }
+.body td.c { text-align: center; }
+/* list cards: compact table, short columns kept on one line */
+.body table.lst { margin-top: 0; }
+.body table.lst th, .body table.lst td { padding: .03em .18em; }
+.body table.lst td:first-child { font-weight: 600; }
+.body table.lst .nw { white-space: nowrap; }
+.body tbody tr:nth-child(odd) td { background: rgba(0,0,0,.05); }
+
+.foot { display: flex; justify-content: space-between; font-size: .72em; color: #7a7266; padding-top: .15em; border-top: .5pt solid rgba(0,0,0,.15); }
+.panel.clipped .foot::after { content: " \2702"; }
+
+/* index cards (landscape) */
+.panel.idx35 { width: 5in; height: 3in; border-radius: .1in; }
+.panel.idx58 { width: 8in; height: 5in; border-radius: .12in; }
+.panel.idx .body { display: flex; gap: .16in; }
+.panel.idx .body > .col { flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
+.panel.idx .body > .col + .col { border-left: .5pt solid rgba(0,0,0,.12); padding-left: .16in; margin-left: -.08in; }
+.panel.idx .sgrid { grid-template-columns: repeat(4, 1fr); }
+.panel.idx .hdr .mline { display: inline-block; margin-right: 1.2em; }
+.panel.idx .mgrid > div { flex: 0 1 auto; }
+.panel.idx .abil { max-width: 4.2in; }
+/* absolute-unit transforms only: percentage transforms break Chrome's print layout */
+.idxcard { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.idxcard.cw  { transform: translateX(3in) rotate(90deg); }
+.idxcard.ccw { transform: translateY(5in) rotate(-90deg); }
+.cell > .idxcard > .panel { outline: .5pt solid #c9c9c9; }
+@page s35 { size: 5in 3in; margin: 0; }
+@page s58 { size: 8in 5in; margin: 0; }
+.sheet.s35 { page: s35; }
+.sheet.s58 { page: s58; }
+
+/* decorative back */
+.panel.back { background: none; }
+.panel.back svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar">
+  <b>Card Forge</b><span id="summary"></span>
+  <button onclick="window.print()">Print</button>
+  <span class="tip">Print at 100% scale · Margins: None · Background graphics: on · Two-sided, flip on the <span id="flipedge"></span> edge.
+  Cut along the grey lines (they run to the paper edge); fold the double-wide cards on the dashed line.<span id="onlynote"></span></span>
+</div>
+<div id="sheets"></div>
+<div id="measure"></div>
+<script>
+const DATA = /*__DATA__*/null;
+(function () {
+  const cfg = DATA.cfg;
+  const PAPER = cfg.paper === "a4" ? { w: 210 / 25.4, h: 297 / 25.4 } : { w: 8.5, h: 11 };
+  // printer correction for the back side, in mm as seen looking at the back (+x right, +y down); see --calibrate
+  const BACK_OFFSET = Array.isArray(cfg.backOffset) ? cfg.backOffset.map(Number) : [0, 0];
+  const GAP = cfg.gap;
+  const measure = document.getElementById("measure");
+  if (GAP <= 0) document.body.classList.add("nogap");
+  const sheetsEl = document.getElementById("sheets");
+  document.getElementById("flipedge").textContent = cfg.duplex;
+
+  const ICONS = {
+    star: "M12 1.5 L14.2 9.8 L22.5 12 L14.2 14.2 L12 22.5 L9.8 14.2 L1.5 12 L9.8 9.8 Z",
+    skull: "M12 2C7 2 3.8 5.6 3.8 10.2c0 3 1.4 5 3.2 6.2V19.5h2.2V21.5h5.6v-2h2.2v-3.1c1.8-1.2 3.2-3.2 3.2-6.2C20.2 5.6 17 2 12 2Z M8.6 8.4a2.2 2.2 0 1 0 .01 0Z M15.4 8.4a2.2 2.2 0 1 0 .01 0Z M12 13.2l-1.4 2.6h2.8Z",
+    sword: "M20.5 2.5 L21.5 3.5 L21 6.5 L11 16.5 L7.5 13 L17.5 3 Z M6.3 13.2 L10.8 17.7 L9.4 19.1 L8.2 17.9 L4.6 21.5 L2.5 19.4 L6.1 15.8 L4.9 14.6 Z",
+    shield: "M12 1.8 L20.5 4.8 V11 C20.5 16.4 16.8 20.3 12 22.2 C7.2 20.3 3.5 16.4 3.5 11 V4.8 Z M12 5 V19 C15.4 17.4 17.6 14.6 17.6 11 V6.9 Z",
+    potion: "M9 1.8 H15 V3.8 H14 V8.3 C17.3 9.4 19.5 12.2 19.5 15.4 A7.5 7.5 0 0 1 4.5 15.4 C4.5 12.2 6.7 9.4 10 8.3 V3.8 H9 Z M6.6 15 H17.4 A5.4 5.4 0 0 1 6.6 15 Z",
+    ring: "M12 7.5 a7.25 7.25 0 1 0 .01 0Z M12 10.2 a4.55 4.55 0 1 1 -.01 0Z M8.6 2 H15.4 L13.6 6.4 H10.4 Z",
+    scroll: "M6 3.5 H17.5 A2.5 2.5 0 0 1 17.5 8.5 H17 V18 A2.5 2.5 0 0 1 14.5 20.5 H5 A2.5 2.5 0 0 1 5 15.5 H6 Z M8.5 8 H14.5 V9.3 H8.5 Z M8.5 11 H14.5 V12.3 H8.5 Z M8.5 14 H13 V15.3 H8.5 Z",
+    wand: "M3 19.6 L15.4 7.2 L16.8 8.6 L4.4 21 Z M18.5 1.5 L19.4 4.6 L22.5 5.5 L19.4 6.4 L18.5 9.5 L17.6 6.4 L14.5 5.5 L17.6 4.6 Z",
+    gem: "M6 3 H18 L22.5 9 L12 21.5 L1.5 9 Z M7.3 4.6 L4.5 8.6 H8.6 Z M16.7 4.6 L15.4 8.6 H19.5 Z M10.2 4.6 L9.5 8.6 H14.5 L13.8 4.6 Z",
+    chest: "M2.5 10 H21.5 V20.5 H2.5 Z M2.5 8.8 C2.5 5 5.8 3.5 12 3.5 C18.2 3.5 21.5 5 21.5 8.8 Z M10.4 9 H13.6 V13.4 H10.4 Z",
+    medal: "M7 1.5 H10.5 L12 6 L13.5 1.5 H17 L14.3 8.4 A7 7 0 1 1 9.7 8.4 Z M12 11 L13.3 13.7 L16.2 14 L14 16 L14.6 18.9 L12 17.4 L9.4 18.9 L10 16 L7.8 14 L10.7 13.7 Z",
+    person: "M12 2.5 a4 4 0 1 0 .01 0Z M4 21.5 C4 15.5 7.5 12.5 12 12.5 C16.5 12.5 20 15.5 20 21.5 Z",
+    flame: "M12 1.5 C14 6 18.5 8.5 18.5 14 A6.5 6.5 0 0 1 5.5 14 C5.5 10.6 7.6 9.2 8.8 6.2 C10 8.6 11.2 8.8 12 1.5 Z M12 13 C13 15 14.5 15.6 14.5 17.6 A2.5 2.5 0 0 1 9.5 17.6 C9.5 16 11 15 12 13Z",
+    sun: "M12 6.5 a5.5 5.5 0 1 0 .01 0Z M11 0.5 H13 V4.5 H11Z M11 19.5 H13 V23.5 H11Z M0.5 11 H4.5 V13 H0.5Z M19.5 11 H23.5 V13 H19.5Z M3.2 4.6 L4.6 3.2 L7.4 6 L6 7.4Z M16.6 18 L18 16.6 L20.8 19.4 L19.4 20.8Z M3.2 19.4 L6 16.6 L7.4 18 L4.6 20.8Z M16.6 6 L19.4 3.2 L20.8 4.6 L18 7.4Z",
+    book: "M3 4 H10.5 C11.3 4 12 4.6 12 5.4 C12 4.6 12.7 4 13.5 4 H21 V19.5 H13.5 C12.7 19.5 12 20.1 12 21 C12 20.1 11.3 19.5 10.5 19.5 H3 Z M12 6.5 V18.5",
+    eye: "M12 5 C6.5 5 2.8 9 1.5 12 C2.8 15 6.5 19 12 19 C17.5 19 21.2 15 22.5 12 C21.2 9 17.5 5 12 5 Z M12 8.2 a3.8 3.8 0 1 0 .01 0Z"
+  };
+
+  const SERIF = "Palatino Linotype, Book Antiqua, Palatino, P052, URW Palladio L, Georgia, DejaVu Serif, serif";
+  function shade(hex, f) { // f<0 darker, f>0 lighter
+    const n = parseInt(hex.replace("#", ""), 16);
+    let r = n >> 16, g = (n >> 8) & 255, b = n & 255;
+    const t = f < 0 ? 0 : 255, p = Math.abs(f);
+    r = Math.round((t - r) * p + r); g = Math.round((t - g) * p + g); b = Math.round((t - b) * p + b);
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+  }
+  const escx = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+  function node(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+  function div(cls) { const d = document.createElement("div"); if (cls) d.className = cls; return d; }
+
+  // ---------------------------------------------------------------- panels
+  function makePanel(card, idx, fs, size) {
+    const p = div("panel cat-" + card.cat + (size && size !== "card" ? " idx idx" + size.replace("x", "") : ""));
+    p.style.setProperty("--c", card.color);
+    p.style.fontSize = fs + "pt";
+    const f = div("frame"); p.append(f);
+    if (idx === 0) {
+      const badge = card.corner ? `<span class="badge">${escx(card.corner)}</span>` : "";
+      f.append(node(`<div class="ttl"><span class="name">${escx(card.name)}</span>${badge}</div>`));
+      f.append(node(`<div class="sub">${card.sub}</div>`));
+      const h = div("hdr"); h.innerHTML = card.hdr || ""; f.append(h);
+    } else {
+      f.append(node(`<div class="ttl small"><span class="name">${escx(card.name)} <em>(cont.)</em></span></div>`));
+    }
+    const body = div("body"); f.append(body);
+    if (size && size !== "card") for (let k = 0; k < (size === "5x8" ? 3 : 2); k++) body.append(div("col"));
+    f.append(node(`<div class="foot"><span>${escx(card.src || "")}</span><span class="pg"></span></div>`));
+    return p;
+  }
+
+  function makeBack(card) {
+    const b = card.back, c = b.color || card.color, dk = shade(c, -0.45), lt = shade(c, 0.15), gold = "#e3c378";
+    const id = "g" + Math.random().toString(36).slice(2, 8);
+    let ticks = "";
+    for (let i = 0; i < 48; i++) {
+      const a = i * Math.PI / 24, r1 = i % 4 ? 63 : 59, r2 = 68;
+      ticks += `<line x1="${125 + r1 * Math.cos(a)}" y1="${178 + r1 * Math.sin(a)}" x2="${125 + r2 * Math.cos(a)}" y2="${178 + r2 * Math.sin(a)}"/>`;
+    }
+    const corner = (x, y, sx, sy) => `<g transform="translate(${x} ${y}) scale(${sx} ${sy})"><path d="M0 26 Q0 0 26 0" fill="none"/><path d="M6 6 L12 0 L18 6 L12 12Z" fill="${gold}" stroke="none" transform="translate(-3 -3) scale(.7)"/><circle cx="6" cy="6" r="2.2" fill="${gold}" stroke="none"/></g>`;
+    const icon = ICONS[b.icon] || ICONS.star;
+    let center;
+    if (b.big) {
+      const fsz = b.big.length <= 1 ? 62 : b.big.length <= 2 ? 52 : 40;
+      center = `<g fill="${gold}" transform="translate(114.8 124) scale(.85)"><path d="${icon}" fill-rule="evenodd"/></g>
+        <text x="125" y="${200 - (62 - fsz) / 4}" text-anchor="middle" font-size="${fsz}" font-weight="700" fill="#fff" font-family="${SERIF}">${escx(b.big)}</text>
+        <text x="125" y="217" text-anchor="middle" font-size="${b.bigsub.length > 8 ? 8.5 : 9.5}" letter-spacing="${b.bigsub.length > 7 ? 1.3 : 2.5}" fill="${gold}" font-family="${SERIF}">${escx(b.bigsub)}</text>`;
+    } else {
+      center = `<g fill="${gold}" transform="translate(89 140) scale(3)"><path d="${icon}" fill-rule="evenodd"/></g>`;
+    }
+    const below = b.big ? b.line : b.bigsub;
+    const below2 = b.big ? "" : b.line;
+    // one line if it fits, else two (smaller), else two with the end cut off with "…"
+    const L1 = below ? fitLines(below, 194, below2 ? 12 : 13, 8.5, { weight: 400, spacing: 1.5 }) : { px: 0, lines: [] };
+    const lh1 = L1.px * 1.2;
+    const y1 = (below2 ? 280 : 284) - (L1.lines.length - 1) * lh1 * 0.35;
+    const yDeco = Math.max(292, y1 + (L1.lines.length - 1) * lh1 + 8);
+    const L2 = below2 ? fitLines(below2, 194, 10, 7.5, { weight: 400, spacing: 1 }) : { px: 0, lines: [] };
+    const lh2 = L2.px * 1.2;
+    const y2 = yDeco + 26 - (L2.lines.length - 1) * lh2 * 0.5;
+    const belowSvg = L1.lines.map((t, i) => `<text x="125" y="${y1 + i * lh1}" text-anchor="middle" font-size="${L1.px}" letter-spacing="1.5" fill="#fff" font-family="${SERIF}">${escx(t)}</text>`).join("")
+      + L2.lines.map((t, i) => `<text x="125" y="${y2 + i * lh2}" text-anchor="middle" font-size="${L2.px}" fill="${gold}" font-family="${SERIF}" letter-spacing="1">${escx(t)}</text>`).join("");
+    const svg = `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <defs>
+        <radialGradient id="${id}" cx="50%" cy="48%" r="70%"><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${dk}"/></radialGradient>
+        <pattern id="${id}p" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <path d="M0 7 H14" stroke="#000" stroke-opacity=".10" stroke-width="1"/></pattern>
+      </defs>
+      <rect width="250" height="350" rx="${GAP > 0 ? 12 : 0}" fill="url(#${id})"/>
+      <rect width="250" height="350" rx="${GAP > 0 ? 12 : 0}" fill="url(#${id}p)"/>
+      <g fill="none" stroke="${gold}">
+        <rect x="9" y="9" width="232" height="332" rx="9" stroke-width="2.2"/>
+        <rect x="15" y="15" width="220" height="320" rx="6" stroke-width=".7" opacity=".7"/>
+        ${corner(15, 15, 1, 1)}${corner(235, 15, -1, 1)}${corner(15, 335, 1, -1)}${corner(235, 335, -1, -1)}
+        <path d="M70 66 H180 M95 72 H155" stroke-width=".8" opacity=".8"/>
+        <path d="M70 ${yDeco} H180 M95 ${yDeco + 6} H155" stroke-width=".8" opacity=".8"/>
+      </g>
+      <text x="125" y="56" text-anchor="middle" font-size="${Math.min(15, 190 / Math.max(1, (b.label || "").length) / 0.9)}" letter-spacing="${(b.label || "").length > 12 ? 1.5 : 4}" fill="${gold}" font-family="${SERIF}" font-variant="small-caps">${escx((b.label || "").toUpperCase())}</text>
+      <circle cx="125" cy="178" r="72" fill="${dk}" fill-opacity=".55" stroke="${gold}" stroke-width="2.5"/>
+      <circle cx="125" cy="178" r="57" fill="none" stroke="${gold}" stroke-width=".8"/>
+      <g stroke="${gold}" stroke-width="1">${ticks}</g>
+      <path d="M125 100 l5 6 -5 6 -5 -6Z M125 244 l5 6 -5 6 -5 -6Z M47 178 l6 -5 6 5 -6 5Z M191 178 l6 -5 6 5 -6 5Z" fill="${gold}"/>
+      ${center}
+      ${belowSvg}
+    </svg>`;
+    const p = div("panel back"); p.innerHTML = svg; return p;
+  }
+
+  // ---- landscape back for index cards: medallion on the left, title plate on the right, frame to the edges
+  const measureCtx = document.createElement("canvas").getContext("2d");
+  function textWidth(str, px, { weight = 700, caps = false, spacing = 0 } = {}) {
+    measureCtx.font = `${weight} ${px}px ${SERIF}`;
+    if ("fontVariantCaps" in measureCtx) measureCtx.fontVariantCaps = caps ? "small-caps" : "normal";
+    return measureCtx.measureText(caps && !("fontVariantCaps" in measureCtx) ? str.toUpperCase() : str).width + spacing * str.length;
+  }
+  function ellipsize(str, maxW, px, opts) {
+    if (textWidth(str, px, opts) <= maxW) return str;
+    let t = str;
+    while (t.length > 1 && textWidth(t + "\u2026", px, opts) > maxW) t = t.slice(0, -1);
+    return t.replace(/[\s,;:\u00b7\u2022-]+$/, "") + "\u2026";
+  }
+  function fitLines(str, maxW, maxPx, minPx, opts) {   // one line if possible, else the most balanced two lines
+    const words = String(str).split(/\s+/).filter(Boolean);
+    for (let px = maxPx; px >= minPx; px -= 0.5) {
+      if (textWidth(str, px, opts) <= maxW) return { px, lines: [str] };
+      let best = null;
+      for (let i = 1; i < words.length; i++) {
+        const l = [words.slice(0, i).join(" "), words.slice(i).join(" ")];
+        const w = Math.max(...l.map(x => textWidth(x, px, opts)));
+        if (!best || w < best.w) best = { w, lines: l };
+      }
+      if (best && best.w <= maxW) return { px, lines: best.lines };
+    }
+    // still too long at the smallest size: fill the first line, cut the second short with "…"
+    let first = "", i = 0;
+    for (; i < words.length; i++) {
+      const t = first ? `${first} ${words[i]}` : words[i];
+      if (textWidth(t, minPx, opts) > maxW) break;
+      first = t;
+    }
+    if (!first) return { px: minPx, lines: [ellipsize(str, maxW, minPx, opts)] };
+    const rest = words.slice(i).join(" ");
+    return { px: minPx, lines: rest ? [first, ellipsize(rest, maxW, minPx, opts)] : [first] };
+  }
+
+  function makeIdxBack(card, size) {
+    const b = card.back, c = b.color || card.color, dk = shade(c, -0.45), lt = shade(c, 0.15), gold = "#e3c378";
+    const W = size === "3x5" ? 500 : 800, H = size === "3x5" ? 300 : 500, u = H / 300;   // 100 units per inch
+    const id = "i" + Math.random().toString(36).slice(2, 8);
+    const rx = GAP > 0 ? 10 * u : 0;
+    const R = 84 * u, k = R / 72, cx = 128 * u, cy = H / 2;          // medallion
+    const xd = cx + 96 * k;                                           // divider between medallion and title plate
+    const ax0 = xd + 26 * u, ax1 = W - 34 * u, aw = ax1 - ax0, acx = (ax0 + ax1) / 2;
+
+    let ticks = "";
+    for (let i = 0; i < 48; i++) {
+      const a = i * Math.PI / 24, r1 = (i % 4 ? 63 : 59) * k, r2 = 68 * k;
+      ticks += `<line x1="${cx + r1 * Math.cos(a)}" y1="${cy + r1 * Math.sin(a)}" x2="${cx + r2 * Math.cos(a)}" y2="${cy + r2 * Math.sin(a)}"/>`;
+    }
+    const corner = (x, y, sx, sy) => `<g transform="translate(${x} ${y}) scale(${sx * u} ${sy * u})"><path d="M0 26 Q0 0 26 0" fill="none"/><path d="M6 6 L12 0 L18 6 L12 12Z" fill="${gold}" stroke="none" transform="translate(-3 -3) scale(.7)"/><circle cx="6" cy="6" r="2.2" fill="${gold}" stroke="none"/></g>`;
+    const diamond = (x, y, r) => `M${x} ${y - r} L${x + r * 0.8} ${y} L${x} ${y + r} L${x - r * 0.8} ${y}Z`;
+    const icon = ICONS[b.icon] || ICONS.star;
+
+    let center;
+    if (b.big) {
+      const fsz = (b.big.length <= 1 ? 62 : b.big.length <= 2 ? 52 : 40) * k;
+      center = `<g fill="${gold}" transform="translate(${cx - 10.2 * k} ${cy - 54 * k}) scale(${0.85 * k})"><path d="${icon}" fill-rule="evenodd"/></g>
+        <text x="${cx}" y="${cy + 22 * k - (62 * k - fsz) / 4}" text-anchor="middle" font-size="${fsz}" font-weight="700" fill="#fff" font-family="${SERIF}">${escx(b.big)}</text>
+        <text x="${cx}" y="${cy + 39 * k}" text-anchor="middle" font-size="${(b.bigsub.length > 8 ? 8.5 : 9.5) * k}" letter-spacing="${(b.bigsub.length > 7 ? 1.3 : 2.5) * k}" fill="${gold}" font-family="${SERIF}">${escx(b.bigsub)}</text>`;
+    } else {
+      center = `<g fill="${gold}" transform="translate(${cx - 36 * k} ${cy - 38 * k}) scale(${3 * k})"><path d="${icon}" fill-rule="evenodd"/></g>`;
+    }
+
+    // title plate: type label, the entry's name, then school / size and type / rarity
+    const label = (b.label || "").toUpperCase();
+    const labelSpacing = (label.length > 12 ? 2 : 4) * u;
+    let labelPx = 17 * u;
+    while (labelPx > 9 * u && textWidth(label, labelPx, { weight: 400, spacing: labelSpacing }) > aw) labelPx -= 0.5;
+    const labelText = ellipsize(label, aw, labelPx, { weight: 400, spacing: labelSpacing });
+    const name = card.name || "";
+    const nm = fitLines(name, aw, 34 * u, 15 * u, { caps: true });
+    const titleCase = x => String(x || "").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+    const subs = [b.big ? "" : titleCase(b.bigsub), b.line]
+      .filter(x => x && x.toLowerCase() !== (b.label || "").toLowerCase() && x.toLowerCase() !== name.toLowerCase());
+    const subText = [...new Set(subs)].join(" • ");
+    const subParts = [...new Set(subs)], subOpts = { weight: 400, spacing: 1.2 * u };
+    let sb = subText ? fitLines(subText, aw, 15 * u, 10 * u, subOpts) : { px: 0, lines: [] };
+    if (sb.lines.length > 1 && subParts.length === 2) {   // two parts: break at the bullet, one per line (2 lines max)
+      const px = Math.min(...subParts.map(x => fitLines(x, aw, 15 * u, 10 * u, subOpts).px));
+      sb = { px, lines: subParts.map(x => ellipsize(x, aw, px, subOpts)) };
+    }
+
+    const lineH = nm.px * 1.08, subLineH = sb.px * 1.25;
+    let y = labelPx * 0.75;                                   // label baseline (block top = 0)
+    const yLabel = y;
+    const yRuleTop = (y += 12 * u);
+    const nameBase = (y += 13 * u + nm.px * 0.72);
+    y += (nm.lines.length - 1) * lineH;
+    const subBase = sb.lines.length ? (y += 12 * u + sb.px * 0.95) : 0;
+    y += Math.max(0, sb.lines.length - 1) * subLineH;
+    const yRuleBot = (y += sb.lines.length ? 15 * u : 17 * u);
+    const shift = cy - y / 2;                                  // centre the whole plate vertically
+    const nameSvg = nm.lines.map((ln, i) => `<text x="${acx}" y="${shift + nameBase + i * lineH}" text-anchor="middle" font-size="${nm.px}" font-weight="700" font-variant="small-caps" fill="#fff" font-family="${SERIF}"${nm.squeeze ? ` textLength="${aw}" lengthAdjust="spacingAndGlyphs"` : ""}>${escx(ln)}</text>`).join("");
+    const subSvg = sb.lines.map((ln, i) => `<text x="${acx}" y="${shift + subBase + i * subLineH}" text-anchor="middle" font-size="${sb.px}" letter-spacing="${1.2 * u}" fill="#fff" fill-opacity=".9" font-family="${SERIF}"${sb.squeeze ? ` textLength="${aw}" lengthAdjust="spacingAndGlyphs"` : ""}>${escx(ln)}</text>`).join("");
+    const rule = (y) => `<path d="M${acx - aw * 0.42} ${y} H${acx - 9 * u} M${acx + 9 * u} ${y} H${acx + aw * 0.42}" stroke="${gold}" stroke-width="${0.9 * u}" opacity=".85"/><path d="${diamond(acx, y, 4.5 * u)}" fill="${gold}"/>`;
+
+    const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <defs>
+        <radialGradient id="${id}" cx="${(cx / W) * 100}%" cy="50%" r="85%"><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${dk}"/></radialGradient>
+        <radialGradient id="${id}h" cx="${(acx / W) * 100}%" cy="50%" r="40%"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <pattern id="${id}p" width="${14 * u}" height="${14 * u}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <path d="M0 ${7 * u} H${14 * u}" stroke="#000" stroke-opacity=".10" stroke-width="${u}"/></pattern>
+      </defs>
+      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id})"/>
+      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id}p)"/>
+      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id}h)"/>
+      <g fill="none" stroke="${gold}">
+        <rect x="${9 * u}" y="${9 * u}" width="${W - 18 * u}" height="${H - 18 * u}" rx="${9 * u}" stroke-width="${2.2 * u}"/>
+        <rect x="${15 * u}" y="${15 * u}" width="${W - 30 * u}" height="${H - 30 * u}" rx="${6 * u}" stroke-width="${0.7 * u}" opacity=".7"/>
+        ${corner(15 * u, 15 * u, 1, 1)}${corner(W - 15 * u, 15 * u, -1, 1)}${corner(15 * u, H - 15 * u, 1, -1)}${corner(W - 15 * u, H - 15 * u, -1, -1)}
+        <path d="M${xd} ${34 * u} V${cy - 12 * u} M${xd} ${cy + 12 * u} V${H - 34 * u}" stroke-width="${0.9 * u}" opacity=".8"/>
+        <path d="M${xd + 4 * u} ${52 * u} V${cy - 20 * u} M${xd + 4 * u} ${cy + 20 * u} V${H - 52 * u}" stroke-width="${0.5 * u}" opacity=".5"/>
+      </g>
+      <path d="${diamond(xd, cy, 7 * u)} ${diamond(xd, 30 * u, 4 * u)} ${diamond(xd, H - 30 * u, 4 * u)}" fill="${gold}"/>
+      <circle cx="${cx}" cy="${cy}" r="${72 * k}" fill="${dk}" fill-opacity=".55" stroke="${gold}" stroke-width="${2.5 * k}"/>
+      <circle cx="${cx}" cy="${cy}" r="${57 * k}" fill="none" stroke="${gold}" stroke-width="${0.8 * k}"/>
+      <g stroke="${gold}" stroke-width="${k}">${ticks}</g>
+      <path d="${diamond(cx, cy - 78 * k, 6 * k)} ${diamond(cx, cy + 78 * k, 6 * k)} ${diamond(cx - 78 * k, cy, 6 * k)} ${diamond(cx + 78 * k, cy, 6 * k)}" fill="${gold}"/>
+      ${center}
+      <text x="${acx}" y="${shift + yLabel}" text-anchor="middle" font-size="${labelPx}" letter-spacing="${labelSpacing}" fill="${gold}" font-family="${SERIF}">${escx(labelText)}</text>
+      ${rule(shift + yRuleTop)}
+      ${nameSvg}
+      ${subSvg}
+      ${rule(shift + yRuleBot)}
+    </svg>`;
+    const p = makePanel(card, 1, 8, size);
+    p.innerHTML = svg;
+    p.classList.add("back");
+    return p;
+  }
+
+  // ---------------------------------------------------------------- splitting
+  const over = body => body.scrollHeight > body.clientHeight + 0.5 || body.scrollWidth > body.clientWidth + 0.5;
+  function textNodes(n) { const w = document.createTreeWalker(n, NodeFilter.SHOW_TEXT); const a = []; while (w.nextNode()) a.push(w.currentNode); return a; }
+  function wordCount(n) { return textNodes(n).reduce((s, t) => s + (t.data.match(/\S+/g) || []).length, 0); }
+  function splitWords(el, k) {
+    const h = el.cloneNode(true), t = el.cloneNode(true), hn = textNodes(h), tn = textNodes(t);
+    let c = 0;
+    for (let i = 0; i < hn.length; i++) {
+      const toks = hn[i].data.match(/\s*\S+|\s+$/g) || [];
+      const words = toks.filter(x => /\S/.test(x)).length;
+      if (c + words <= k) { tn[i].data = ""; c += words; }
+      else if (c >= k) { hn[i].data = ""; }
+      else {
+        let need = k - c, j = 0, cnt = 0;
+        while (j < toks.length && cnt < need) { if (/\S/.test(toks[j])) cnt++; j++; }
+        hn[i].data = toks.slice(0, j).join(""); tn[i].data = toks.slice(j).join("").replace(/^\s+/, ""); c = k;
+      }
+    }
+    t.classList.add("cont");
+    h.classList.add("head");
+    for (const part of [h, t])   // a box split between paragraphs leaves empty ones behind
+      part.querySelectorAll("p, li, h4, div.ind").forEach(x => { if (!x.textContent.trim() && !x.querySelector("img, svg")) x.remove(); });
+    return [h, t];
+  }
+  function fitWords(body, el, minWords = 4) {
+    const W = wordCount(el);
+    if (W < 6) return null;
+    let lo = 0, hi = W - 3, best = 0;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const [h] = splitWords(el, mid);
+      body.append(h);
+      const ok = !over(body);
+      body.removeChild(h);
+      if (ok) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    const min = body.children.length ? minWords : 1;
+    if (best < min) return null;
+    return splitWords(el, best);
+  }
+  function fitRows(body, el) {
+    const rows = el.querySelectorAll("tbody tr").length;
+    let best = 0;
+    for (let k = 1; k < rows; k++) {
+      const h = el.cloneNode(true); const tr = h.querySelectorAll("tbody tr");
+      for (let i = k; i < tr.length; i++) tr[i].remove();
+      body.append(h); const ok = !over(body); body.removeChild(h);
+      if (ok) best = k; else break;
+    }
+    if (best < (body.children.length ? 2 : 1)) return null;
+    const h = el.cloneNode(true), t = el.cloneNode(true);
+    h.querySelectorAll("tbody tr").forEach((r, i) => { if (i >= best) r.remove(); });
+    t.querySelectorAll("tbody tr").forEach((r, i) => { if (i < best) r.remove(); });
+    const cap = t.querySelector("caption"); if (cap) cap.textContent += " (cont.)";
+    return [h, t];
+  }
+
+  // ---------------------------------------------------------------- layout
+  // level 0: split anything where it runs out of room.
+  // level 1: boxes (a creature's stats, traits, actions) move to the next column / side instead of splitting,
+  //          unless a box is taller than a whole side.
+  // level 2: also move a whole section (Traits, Actions, ...) to the next side when it would straddle two sides
+  //          but fits on one (the two inside halves of a folding card count as one side).
+  function contentH(body) {
+    const s = document.createElement("div"); body.append(s);
+    const h = s.getBoundingClientRect().top - body.getBoundingClientRect().top; s.remove(); return h;
+  }
+  function qItem(b) {
+    const n = node(b.h); if (!n) return null;
+    Object.assign(n, { _k: b.k, _s: b.s, _ss: b.ss, _kn: b.kn });
+    return { k: b.k, n, s: b.s, ss: b.ss, kn: b.kn };
+  }
+  function fill(card, fs, n, size, level = 0) {
+    const q = card.blocks.map(qItem).filter(Boolean);
+    const panels = [];
+    for (let i = 0; i < n; i++) {
+      const p = makePanel(card, i, fs, size); measure.append(p);
+      const bodyEl = p.querySelector(".body");
+      if (bodyEl.clientHeight < 12) { panels.push(p); return { panels, left: 1 + q.length }; }
+      const slots = bodyEl.querySelector(".col") ? [...bodyEl.querySelectorAll(".col")] : [bodyEl];
+      const spread = size === "card" && n === 4 && i === 1;   // fold card: inside left + right are read together
+      let nextSide = false;
+      for (let si = 0; si < slots.length && !nextSide; si++) {
+        const body = slots[si];
+        while (q.length) {
+          const b = q[0];
+          if (level >= 2 && b.ss && i < n - 1 && !spread && slots.some(x => x.children.length)) {
+            const sec = []; for (const x of q) { if (x.s !== b.s) break; sec.push(x); }
+            const before = contentH(body);
+            sec.forEach(x => body.append(x.n));
+            const fitsHere = !over(body), secH = contentH(body) - before;
+            sec.forEach(x => body.removeChild(x.n));
+            if (!fitsHere) {
+              const H = body.clientHeight, later = slots.length - 1 - si;
+              const room = later ? ((H - before) + later * H) * 0.92 : H - before;
+              if (secH > room && secH <= slots.length * H * 0.97) { nextSide = true; break; }
+            }
+          }
+          body.append(b.n);
+          if (!over(body)) { q.shift(); continue; }
+          let parts = null;
+          if (b.k === "box" && level >= 1 && body.children.length > 1) {
+            const before = (body.removeChild(b.n), contentH(body));
+            body.append(b.n); const boxH = contentH(body) - before; body.removeChild(b.n);
+            if (boxH <= body.clientHeight) break;           // fits on a fresh column / side: move it there whole
+            parts = fitWords(body, b.n, 10);
+          } else {
+            body.removeChild(b.n);
+            if (b.k === "p" || b.k === "li" || b.k === "stat") parts = fitWords(body, b.n);
+            else if (b.k === "box") parts = fitWords(body, b.n, 10);
+            else if (b.k === "table") parts = fitRows(body, b.n);
+          }
+          if (parts) { body.append(parts[0]); q[0] = { ...b, ss: 0, n: Object.assign(parts[1], { _k: b.k, _s: b.s, _ss: 0, _kn: b.kn }) }; }
+          else if (!body.children.length) { body.append(b.n); q.shift(); p.classList.add("clipped"); continue; }
+          break;
+        }
+        // don't strand a heading (or a section's lead-in line) at the bottom of a column / side
+        while (q.length && body.children.length > 1 && !q[0].n.classList.contains("cont")) {
+          const last = body.lastElementChild;
+          if (!(last.tagName === "H4" || last._kn)) break;
+          body.removeChild(last);
+          q.unshift({ k: last._k || "h", n: last, s: last._s, ss: last._ss, kn: last._kn });
+        }
+        if (!q.length) break;
+      }
+      panels.push(p);
+      if (!q.length) break;
+    }
+    return { panels, left: q.length };
+  }
+  function clear(r) { if (r) r.panels.forEach(p => p.remove()); }
+  function steps(top) { const a = []; for (let f = top; f >= cfg.minFont - 1e-6; f -= 0.5) a.push(+f.toFixed(2)); return a; }
+
+  // try one format; returns {type, panels} or null
+  function tryFormat(card, fmt) {
+    const spec = {
+      single: { n: 1, size: "card", fonts: steps(8) },
+      double: { n: 2, size: "card", fonts: steps(8) },
+      fold:   { n: 4, size: "card", fonts: steps(8).concat(cfg.minFont - 0.5 >= 5.5 ? [+(cfg.minFont - 0.5).toFixed(2)] : []) },
+      "3x5":  { n: 2, size: "3x5", fonts: steps(8.5) },
+      "5x8":  { n: 2, size: "5x8", fonts: steps(9.5) },
+    }[fmt];
+    let f0 = null, r0 = null;
+    for (const f of spec.fonts) {
+      const r = fill(card, f, spec.n, spec.size);
+      if (!r.left) { f0 = f; r0 = r; break; }
+      clear(r);
+    }
+    if (r0 === null) return null;
+    // creatures: keep sections / boxes whole when that fits at the same size, or costs at most 1pt of font size
+    if (card.blocks.some(b => b.k === "box" || b.ss)) {
+      for (const f of spec.fonts) {
+        if (f > f0 + 1e-6) continue;
+        if (f < f0 - 1 - 1e-6) break;
+        for (const lv of [2, 1]) {
+          const r = fill(card, f, spec.n, spec.size, lv);
+          if (!r.left) { clear(r0); return { type: fmt, panels: r.panels }; }
+          clear(r);
+        }
+      }
+    }
+    return { type: fmt, panels: r0.panels };
+  }
+  window.__cardforge = { fill: (...a) => fill(...a), tryFormat: (...a) => tryFormat(...a), clear: (...a) => clear(...a) };   // for testing
+  function layout(card) {
+    if (!card.noCard) for (const fmt of ["single", "double"]) { const r = tryFormat(card, fmt); if (r) return r; }
+    for (const fmt of (card.order || ["fold", "3x5", "5x8"])) { const r = tryFormat(card, fmt); if (r) return r; }
+    if (card.multiFmt) {   // a long list: keep going over as many cards of this kind as it takes
+      const r = fill(card, cfg.minFont, 400, card.multiFmt === "fold" ? "card" : card.multiFmt);
+      return { type: card.multiFmt, panels: r.panels };
+    }
+    return { type: "skip", panels: [] };
+  }
+
+  // ---------------------------------------------------------------- measuring pass (used by cardforge.py)
+  if (cfg.measure) {
+    const res = DATA.cards.map(card => {
+      const out = {};
+      for (const fmt of ["single", "double", "fold", "3x5", "5x8"]) {
+        if (fmt === "double" && out.single) continue;
+        const r = tryFormat(card, fmt);
+        out[fmt] = !!r; if (r) clear(r);
+        if (fmt === "single" && r) out.double = true;   // fits one side -> fits two; index sizes are still measured
+      }
+      return out;
+    });
+    const pre = document.createElement("pre"); pre.id = "measure-result";
+    pre.textContent = "@@RES" + "ULT@@" + JSON.stringify(res) + "@@E" + "ND@@";
+    document.body.append(pre);
+    return;
+  }
+
+  // ---------------------------------------------------------------- build all cards
+  const items = [], idx = { "3x5": [], "5x8": [] }, skipped = [];
+  let uidSeq = 0;
+  let counts = { single: 0, double: 0, fold: 0, "3x5": 0, "5x8": 0 }, clipped = 0;
+  for (const card of DATA.cards) {
+    const L = layout(card);
+    if (L.type === "skip") { skipped.push(card.name); continue; }
+    const ps = L.panels;
+    ps.forEach((p, i) => { if (ps.length > 1) p.querySelector(".pg").textContent = (i + 1) + "/" + ps.length; p.remove(); });
+    if (ps.some(p => p.classList.contains("clipped"))) clipped++;
+    for (let c = 0; c < (card.copies || 1); c++) {
+      const cp = c === 0 ? ps : ps.map(p => p.cloneNode(true));
+      counts[L.type]++;
+      if (L.type === "single") items.push({ uid: uidSeq++, w: 1, front: cp[0], back: makeBack(card) });
+      else if (L.type === "double") items.push({ uid: uidSeq++, w: 1, front: cp[0], back: cp[1] });
+      else if (L.type === "fold") {   // 4 panels per folding card (long lists use several)
+        for (let i = 0; i < cp.length; i += 4)
+          items.push({ uid: uidSeq++, w: 2, front: cp[i], inL: cp[i + 1] || makeBack(card), inR: cp[i + 2] || makeBack(card), back: cp[i + 3] || makeBack(card) });
+      } else {                        // 2 sides per index card
+        for (let i = 0; i < cp.length; i += 2)
+          idx[L.type].push({ uid: uidSeq++, front: cp[i], back: cp[i + 1] || makeIdxBack(card, L.type) });
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- sheets
+  let sheetNo = 0;
+  function newSheet(label, flip, w, h, cls) {
+    const s = div("sheet" + (cls ? " " + cls : ""));
+    w = w || PAPER.w; h = h || PAPER.h;
+    s.style.width = w + "in"; s.style.height = (h - 0.02) + "in";
+    const inner = div("inner");
+    inner.style.height = h + "in";
+    const isBack = /back/i.test(label);
+    const tf = [];
+    if (isBack && (BACK_OFFSET[0] || BACK_OFFSET[1])) tf.push(`translate(${BACK_OFFSET[0]}mm, ${BACK_OFFSET[1]}mm)`);
+    if (flip) tf.push("rotate(180deg)");
+    if (tf.length) inner.style.transform = tf.join(" ");
+    if (!cls && /front/.test(label)) inner.dataset.cut = "1";
+    s.append(inner);
+    const l = div("label"); l.textContent = `Sheet ${++sheetNo} — ${label}`; s.append(l);
+    sheetsEl.append(s);
+    return inner;
+  }
+  function grid(cols, rows, cw, ch) {
+    const x0 = (PAPER.w - (cols * cw + (cols - 1) * GAP)) / 2, y0 = (PAPER.h - (rows * ch + (rows - 1) * GAP)) / 2;
+    return (c, r) => ({ left: x0 + c * (cw + GAP), top: y0 + r * (ch + GAP) });
+  }
+  function place(inner, el, pos, cw, ch, uid) {
+    const cell = div("cell");
+    if (uid != null) cell.dataset.uid = uid;
+    Object.assign(cell.style, { left: pos.left + "in", top: pos.top + "in", width: cw + "in", height: ch + "in" });
+    cell.append(el); inner.append(cell);
+    (inner._rects = inner._rects || []).push({ l: pos.left, t: pos.top, r: pos.left + cw, b: pos.top + ch });
+  }
+  const shortFlip = cfg.duplex === "short";
+  const wrap = (a, b, cls) => { const w = div("fold " + cls); w.style.left = (GAP / 2) + "in"; a.classList.add("fl"); b.classList.add("fr"); w.append(a, b); return w; };
+  const holder = (p, cls) => { const h = div("idxcard " + cls); h.append(p); return h; };
+  const only = cfg.only || "";
+  const section = cfg.section || "main";   // main | s35 | s58
+  const stock = !!cfg.stock;               // index cards printed on card stock in their own files
+  const doFront = only !== "backs", doBack = only !== "fronts";
+  const backLabel = only ? "backs" : "backs (print on the reverse)";
+
+  // playing cards: one 3x3 grid; fold cards take two side-by-side cells
+  if (section === "main") {
+    const cols = 3, rows = 3, cw = 2.5, ch = 3.5, at = grid(cols, rows, cw, ch);
+    const queue = items.slice();
+    while (queue.length) {
+      const placed = [];
+      for (let r = 0; r < rows && queue.length; r++) {
+        let col = 0;
+        while (col < cols) {
+          const k = queue.findIndex(it => it.w <= cols - col);
+          if (k < 0) break;
+          const it = queue.splice(k, 1)[0];
+          placed.push({ it, col, row: r });
+          col += it.w;
+        }
+      }
+      const span = w => w * cw + (w - 1) * GAP;
+      if (doFront) {
+        const f = newSheet("fronts", false);
+        for (const { it, col, row } of placed)
+          place(f, it.w === 1 ? it.front : wrap(it.back, it.front, "outside"), at(col, row), span(it.w), ch, it.uid);
+      }
+      if (doBack) {
+        const b = newSheet(backLabel, shortFlip);
+        for (const { it, col, row } of placed)
+          place(b, it.w === 1 ? it.back : wrap(it.inL, it.inR, "inside"), at(cols - col - it.w, row), span(it.w), ch, it.uid);
+      }
+    }
+  }
+  // index cards
+  for (const size of ["3x5", "5x8"]) {
+    const list = idx[size]; if (!list.length) continue;
+    const W = size === "3x5" ? 5 : 8, H = size === "3x5" ? 3 : 5, key = "s" + size.replace("x", "");
+    if (stock) {
+      if (section !== key) continue;
+      for (const c of list) {   // one card per page, page = the card
+        if (doFront) { const f = newSheet(size + " index card — front", false, W, H, key); place(f, holder(c.front, "up"), { left: 0, top: 0 }, W, H - 0.02, c.uid); }
+        if (doBack) { const b = newSheet(size + " index card — " + backLabel, shortFlip, W, H, key); place(b, holder(c.back, "up"), { left: 0, top: 0 }, W, H - 0.02, c.uid); }
+      }
+      continue;
+    }
+    if (section !== "main") continue;
+    // on regular paper: 3x5 rotated 2x2 per sheet, 5x8 upright 1x2 per sheet
+    const rot = size === "3x5";
+    const cols = rot ? 2 : 1, rows = 2, cw = rot ? H : W, ch = rot ? W : H, at = grid(cols, rows, cw, ch), per = cols * rows;
+    for (let i = 0; i < list.length; i += per) {
+      const chunk = list.slice(i, i + per);
+      if (doFront) { const f = newSheet(size + " index cards — fronts", false); chunk.forEach((c, j) => place(f, holder(c.front, rot ? "cw" : "up"), at(j % cols, Math.floor(j / cols)), cw, ch, c.uid)); }
+      if (doBack) { const b = newSheet(size + " index cards — " + backLabel, shortFlip); chunk.forEach((c, j) => place(b, holder(c.back, rot ? "ccw" : "up"), at(cols - 1 - (j % cols), Math.floor(j / cols)), cw, ch, c.uid)); }
+    }
+  }
+  // cut lines on the front sheets, running out to the paper edge (never across a card's face)
+  function cutLines(inner) {
+    const R = inner._rects || [], eps = 1e-4;
+    const line = (x, y, w, h) => { const d = div("cut"); Object.assign(d.style, { left: x + "in", top: y + "in", width: w + "in", height: h + "in" }); inner.append(d); };
+    const sub = (a, b, blocks) => {   // segment [a,b] minus blocked ranges
+      let segs = [[a, b]];
+      for (const [x, y] of blocks) segs = segs.flatMap(([s, e]) => (y <= s || x >= e) ? [[s, e]] : [[s, x], [y, e]].filter(([u, v]) => v - u > eps));
+      return segs;
+    };
+    const xs = [...new Set(R.flatMap(r => [r.l, r.r]).map(v => +v.toFixed(4)))];
+    const ys = [...new Set(R.flatMap(r => [r.t, r.b]).map(v => +v.toFixed(4)))];
+    const T = 0.006; // ~0.45pt
+    for (const x of xs) for (const [a, b] of sub(0, PAPER.h, R.filter(r => r.l + eps < x && x < r.r - eps).map(r => [r.t, r.b]))) line(x - T / 2, a, T, b - a);
+    for (const y of ys) for (const [a, b] of sub(0, PAPER.w, R.filter(r => r.t + eps < y && y < r.b - eps).map(r => [r.l, r.r]))) line(a, y - T / 2, b - a, T);
+  }
+  document.querySelectorAll(".sheet").forEach(sh => { const inner = sh.querySelector(".inner"); if (inner.dataset.cut) cutLines(inner); });
+
+  if (!sheetNo) sheetsEl.innerHTML = '<p style="color:#fff;font:16px system-ui;text-align:center;margin:40px">No cards in this file.</p>';
+  const n = DATA.cards.reduce((s, c) => s + (c.copies || 1), 0);
+  let sum = `${n} card${n === 1 ? "" : "s"}: ${counts.single} single · ${counts.double} two-sided · ${counts.fold} foldable · ${counts["3x5"]} on 3×5 · ${counts["5x8"]} on 5×8 — ${sheetNo} page${sheetNo === 1 ? "" : "s"} in this file`;
+  if (skipped.length) sum += ` <span class="warn">· skipped (too long even for a 5×8 card): ${skipped.map(escx).join(", ")}</span>`;
+  if (clipped) sum += ` <span class="warn">· ${clipped} card(s) have a table too big for one panel (marked ✂)</span>`;
+  document.getElementById("summary").innerHTML = sum;
+  document.title = `Card Forge (${n})`;
+  if (only) document.getElementById("onlynote").textContent = only === "fronts" ? " This file has the FRONTS only." : " This file has the BACKS only: put the printed fronts back in the tray and print this on the other side.";
+  document.body.dataset.ready = "1";
+})();
+</script>
+</body>
+</html>

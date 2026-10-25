@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Card Forge</title>
+<meta name="description" content="Turn spells, creatures, items and class features from 5e.tools into printable cards.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='3' width='18' height='26' rx='2' fill='%237a1f1f' stroke='%23e3c378' stroke-width='1.6'/%3E%3Ccircle cx='16' cy='16' r='5' fill='none' stroke='%23e3c378' stroke-width='1.4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap">
+<link rel="stylesheet" href="web/app.css">
+</head>
+<body>
+
+<header class="top">
+  <svg class="fan" viewBox="0 0 120 90" aria-hidden="true">
+    <g transform="rotate(-14 60 88)"><rect x="38" y="6" width="44" height="64" rx="4" fill="#3b4a8c"/><rect x="41.5" y="9.5" width="37" height="57" rx="2.5" fill="none" stroke="#e3c378" stroke-width="1.4"/><circle cx="60" cy="38" r="10" fill="none" stroke="#e3c378" stroke-width="1.4"/><text x="60" y="42.5" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" font-family="Georgia, serif">3</text></g>
+    <g transform="rotate(14 60 88)"><rect x="38" y="6" width="44" height="64" rx="4" fill="#8a6d1a"/><rect x="41.5" y="9.5" width="37" height="57" rx="2.5" fill="none" stroke="#e3c378" stroke-width="1.4"/><circle cx="60" cy="38" r="10" fill="none" stroke="#e3c378" stroke-width="1.4"/><path d="M54 40h12v6H54zM54 39c0-3 2.5-4.5 6-4.5s6 1.5 6 4.5z" fill="#e3c378"/></g>
+    <g><rect x="38" y="4" width="44" height="64" rx="4" fill="#7a1f1f"/><rect x="41.5" y="7.5" width="37" height="57" rx="2.5" fill="none" stroke="#e3c378" stroke-width="1.4"/><circle cx="60" cy="36" r="10" fill="none" stroke="#e3c378" stroke-width="1.4"/><text x="60" y="40.5" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Georgia, serif">CR</text></g>
+  </svg>
+  <div class="brand">
+    <h1>Card Forge</h1>
+    <p>Turn spells, creatures, items and class features from 5e.tools into cards you can print, cut and keep at the table.</p>
+  </div>
+</header>
+
+<main class="table">
+
+  <section class="icard listcard" id="listcard" aria-labelledby="list-h">
+    <div class="icard-head">
+      <h2 id="list-h">Your cards</h2>
+      <span class="count" id="count" aria-live="polite"></span>
+      <div class="head-actions">
+        <button type="button" class="link" id="btn-add">Paste links</button>
+        <button type="button" class="link" id="btn-file">Open a list file</button>
+        <button type="button" class="link" id="btn-text">Edit as text</button>
+        <button type="button" class="link" id="btn-save">Save list</button>
+        <button type="button" class="link quiet" id="btn-clear">Clear</button>
+      </div>
+    </div>
+
+    <div class="adder" id="adder" hidden>
+      <label for="add-text">Paste 5e.tools links, one per line (a whole list file works too)</label>
+      <textarea id="add-text" rows="5" spellcheck="false" placeholder="https://5e.tools/spells.html#fireball_xphb"></textarea>
+      <div class="adder-actions">
+        <button type="button" class="btn" id="add-ok">Add to my cards</button>
+        <button type="button" class="link" id="add-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <div class="texted" id="texted" hidden>
+      <label for="list-text">Your list as text. Each line is a link; <code>3x</code> in front makes copies; <code>[card]</code>, <code>[card/index]</code>, <code>[3x5]</code> or <code>[5x8]</code> after it sets the format.</label>
+      <textarea id="list-text" rows="14" spellcheck="false"></textarea>
+      <div class="adder-actions">
+        <button type="button" class="btn" id="text-ok">Use this list</button>
+        <button type="button" class="link" id="text-cancel">Cancel</button>
+      </div>
+    </div>
+
+    <div class="ruled" id="rows"></div>
+    <div class="drop-hint" aria-hidden="true">Drop it here</div>
+  </section>
+
+  <section class="icard blank settings" aria-labelledby="set-h">
+    <div class="icard-head"><h2 id="set-h">Printing</h2></div>
+    <form id="settings" class="set-body" onsubmit="return false">
+      <fieldset>
+        <legend>Paper</legend>
+        <div class="seg">
+          <input type="radio" name="paper" id="paper-letter" value="letter"><label for="paper-letter">US Letter</label>
+          <input type="radio" name="paper" id="paper-a4" value="a4"><label for="paper-a4">A4</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Printer</legend>
+        <div class="seg">
+          <input type="radio" name="split" id="split-no" value="no"><label for="split-no">Prints both sides</label>
+          <input type="radio" name="split" id="split-yes" value="yes"><label for="split-yes">One side only</label>
+        </div>
+        <p class="note" id="split-note"></p>
+      </fieldset>
+      <fieldset>
+        <legend id="duplex-legend">The paper flips on its</legend>
+        <div class="seg">
+          <input type="radio" name="duplex" id="duplex-long" value="long"><label for="duplex-long">Long edge</label>
+          <input type="radio" name="duplex" id="duplex-short" value="short"><label for="duplex-short">Short edge</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Entries too long for one card</legend>
+        <p class="note">Two-sided cards are used first. Longer ones go on:</p>
+        <div class="bigs">
+          <label for="big-spell">Spells</label><select id="big-spell" data-cat="spell"></select>
+          <label for="big-monster">Creatures</label><select id="big-monster" data-cat="monster"></select>
+          <label for="big-item">Items</label><select id="big-item" data-cat="item"></select>
+          <label for="big-feature">Class features</label><select id="big-feature" data-cat="feature"></select>
+          <label for="big-other">Everything else</label><select id="big-other" data-cat="other"></select>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Index cards</legend>
+        <div class="seg">
+          <input type="radio" name="stock" id="stock-no" value="no"><label for="stock-no">Cut from paper</label>
+          <input type="radio" name="stock" id="stock-yes" value="yes"><label for="stock-yes">Printed on card stock</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Lining up the back side</legend>
+        <p class="note">If backs land a little off, shift them here (millimetres, as read on the test page).</p>
+        <div class="offset">
+          <label>X <input type="number" id="off-x" step="0.1" inputmode="decimal"></label>
+          <label>Y <input type="number" id="off-y" step="0.1" inputmode="decimal"></label>
+          <button type="button" class="link" id="btn-calib">Print the test page</button>
+        </div>
+        <details class="readings">
+          <summary>I have readings from the test page</summary>
+          <div class="offset">
+            <label>X <input type="number" id="read-x" step="0.5" inputmode="decimal" placeholder="0"></label>
+            <label>Y <input type="number" id="read-y" step="0.5" inputmode="decimal" placeholder="0"></label>
+            <button type="button" class="btn small" id="btn-readings">Add to the offset</button>
+          </div>
+          <p class="note">Hold the printed test page up to a light and read where the black lines cross the red scales in the middle of the page.</p>
+        </details>
+      </fieldset>
+      <details class="more">
+        <summary>More options</summary>
+        <div class="more-body">
+          <label>Smallest text size <span class="unit"><input type="number" id="min-font" min="5" max="9" step="0.5"> pt</span></label>
+          <label>Space between cards <span class="unit"><input type="number" id="gap" min="0" max="0.5" step="0.05"> in</span></label>
+          <label class="wide">Data source <input type="url" id="data-base" placeholder="Automatic (5e.tools, then its GitHub copy)"></label>
+          <p class="note wide">Point this at your own 5etools mirror's <code>data/</code> folder if 5e.tools isn't reachable.</p>
+          <button type="button" class="link wide" id="btn-forget">Forget downloaded data</button>
+        </div>
+      </details>
+    </form>
+  </section>
+
+  <section class="go">
+    <button type="button" class="primary" id="btn-make">Make cards</button>
+    <p id="go-hint" class="go-hint"></p>
+  </section>
+
+  <section class="icard result" id="result" hidden aria-labelledby="res-h" tabindex="-1">
+    <div class="icard-head"><h2 id="res-h">Print sheets</h2><span class="count" id="res-status" aria-live="polite"></span></div>
+    <div class="ruled log" id="log"></div>
+    <div class="chooser" id="chooser" hidden></div>
+    <div class="outputs" id="outputs" hidden></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="ways">
+    <h2>Getting your picks from 5e.tools</h2>
+    <dl>
+      <dt>Copy links</dt>
+      <dd>Open any spell, creature, item or feat on 5e.tools and copy the address. Paste as many as you like.</dd>
+      <dt>Pinned lists</dt>
+      <dd>On a 5e.tools list page, pin entries, then use <em>Download Pinned List</em> under the pinned list and open that file here.</dd>
+      <dt>The list collector</dt>
+      <dd>A small <a href="https://www.tampermonkey.net/" rel="noopener">Tampermonkey</a> script that adds an Add button to every 5e.tools page, plus class features, whole filtered lists and loot-generator results, and sends your list straight here.
+        <a href="5etools-card-list.user.js" class="install">Install the collector</a>
+        <span class="addr">It sends lists to this site. If yours sends them elsewhere, click <em>change</em> under its list and use <code id="site-addr"></code> <button type="button" class="link" id="btn-copy-addr">Copy</button></span></dd>
+    </dl>
+  </div>
+  <p class="small">Card Forge reads the same public data files 5e.tools uses and keeps a copy in your browser for a week. Your list stays in this browser. Card text belongs to its publishers; print it for your own table.</p>
+</footer>
+
+<input type="file" id="file" accept=".txt,.list,.json,text/plain,application/json" multiple hidden>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" id="toast-act" hidden></button></div>
+
+<script src="web/core.js"></script>
+<script src="web/app.js"></script>
+</body>
+</html>

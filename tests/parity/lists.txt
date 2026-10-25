@@ -1,0 +1,36 @@
+# a comment
+// another
+3x https://5e.tools/spells.html#fireball_xphb [card]   # Spell: Fireball
+https://5e.tools/spells.html#wish_xphb x2 [card/index]
+https://5e.tools/bestiary.html#lich_xmm [5x8]
+https://5e.tools/items.html#bag%20of%20holding_xdmg [3x5]
+https://5e.tools/spells.html#magic%20jar_xphb,cardforge:scroll~spell%20scroll%20(6th%20level)_dmg [card]
+https://5e.tools/classes.html#wizard_xphb,cardforge:cf~arcane%20recovery~1
+https://5e.tools/feats.html#alert_xphb [weird]
+[list] Wizard 1st-Level Spells [card]   # 1st level · Wizard
+https://5e.tools/spells.html#burning%20hands_xphb
+https://5e.tools/spells.html#charm%20person_xphb
+https://5e.tools/spells.html#nope_xphb
+[end list]
+2x [list] Some creatures [3x5]
+https://5e.tools/bestiary.html#goblin%20warrior_xmm
+https://5e.tools/bestiary.html#owlbear_xmm
+[/list]
+[list] Mixed pages
+https://5e.tools/bestiary.html#owlbear_xmm
+https://5e.tools/spells.html#fireball_xphb
+[end]
+[loot] Ancient Dragon's Hoard [card]   # 635,005 gp in coins, gems and art
+coins: 170,000 GP
+gems: 50 GP gemstones ×3 (150 GP): Sardonyx, Citrine, Quartz
+art: 25 GP art objects ×2 (50 GP): Silver ewer ×2
+other: A large, noisy wind chime
+other: A large, noisy wind chime
+item: https://5e.tools/items.html#oil%20of%20sharpness_xdmg   # Oil of Sharpness
+https://5e.tools/items.html#potion%20of%20healing_xdmg
+item: https://5e.tools/items.html#not%20a%20thing_xdmg   # Mystery Thing
+[end loot]
+[loot] Empty pile
+[loot] Feats as loot [5x8]
+item: https://5e.tools/feats.html#alert_xphb
+[end loot]

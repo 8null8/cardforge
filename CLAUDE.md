@@ -9,7 +9,9 @@ Card Forge turns 5e.tools entries into printable cards. Two front ends share one
 - `card_template.html`: layout engine, styles and card backs, used unchanged by both.
 - `5etools-card-list.user.js`: the Tampermonkey list collector. Bump `@version` on every change - installed
   copies update themselves from `https://cards.arcvein.org/5etools-card-list.user.js`.
-- `hosting/`: Proxmox LXC installer, nginx setup, and the GitHub auto-update mode (`github-setup.sh`).
+- `hosting/`: Proxmox LXC installer, nginx setup, the GitHub auto-update mode (`github-setup.sh`) and the
+  PDF service (`pdf-service.py`: headless Chromium behind nginx at `/api/pdf`; the site only shows Download PDF
+  when `GET api/pdf` answers `{"ok": true}`).
 
 Rules:
 

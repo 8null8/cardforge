@@ -157,6 +157,10 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 .chooser .act { margin-top: 1rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
 .outputs .sheets { display: flex; flex-wrap: wrap; gap: .75rem; margin: .8rem 0; }
 .outputs .sheets .btn { font-size: 1.05rem; padding: .7rem 1.2rem; }
+.outputs .job { display: inline-flex; flex-wrap: wrap; gap: .5rem; }
+.outputs .btn.pdf { background: var(--brass); color: var(--ink); }
+.outputs .btn.pdf:hover { background: #ddb862; }
+.outputs .btn:disabled { opacity: .65; cursor: progress; }
 .outputs .how { margin: .2rem 0; color: var(--ink-soft); max-width: 46rem; }
 .outputs ul.notes { margin: .5rem 0; padding-left: 1.2rem; color: var(--ink-soft); }
 .outputs .dl { font-size: .95rem; color: var(--muted); }

@@ -43,7 +43,7 @@ push_site() {   # copy the site from this folder into container $1 and (re)insta
 	local ctid="$1" bundle
 	[ "$LOCAL" = 1 ] || die "run this from an unzipped Card Forge folder (or use: github <container id>)"
 	bundle="$(mktemp /tmp/cardforge-XXXX.tgz)"
-	tar -C "$ROOT" -czf "$bundle" index.html card_template.html 5etools-card-list.user.js README.md web hosting/container-setup.sh
+	tar -C "$ROOT" -czf "$bundle" index.html card_template.html 5etools-card-list.user.js README.md web hosting/container-setup.sh hosting/pdf-service.py
 	pct push "$ctid" "$bundle" /root/cardforge-site.tgz
 	rm -f "$bundle"
 	pct exec "$ctid" -- bash -c "set -e; rm -rf /root/cardforge-site; mkdir -p /root/cardforge-site; tar -xzf /root/cardforge-site.tgz -C /root/cardforge-site; SRC=/root/cardforge-site bash /root/cardforge-site/hosting/container-setup.sh"
@@ -77,9 +77,9 @@ mapfile -t TPL_STORES < <(pvesm status -content vztmpl 2>/dev/null | awk 'NR>1 &
 [ ${#TPL_STORES[@]} -gt 0 ] || die "no active storage that can hold container templates (enable 'Container template' on e.g. 'local')"
 TPL_STORE="${TPL_STORES[0]}"
 
-DISK=$(ask "Disk size in GB" "2")
+DISK=$(ask "Disk size in GB" "4")
 CORES=$(ask "CPU cores" "1")
-RAM=$(ask "Memory in MB" "256")
+RAM=$(ask "Memory in MB (1024 for PDF downloads)" "1024")
 BRIDGE=$(ask "Network bridge" "vmbr0")
 IP=$(ask "IPv4 address: 'dhcp' or e.g. 192.168.1.50/24" "dhcp")
 NET="name=eth0,bridge=$BRIDGE,ip=$IP"

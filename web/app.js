@@ -582,8 +582,9 @@
     for (const [sec, slabel] of sections) for (const [only, hlabel] of halves) {
       const what = sec === "main" ? "cards" : slabel === "3x5" ? "3×5 index cards" : "5×8 index cards";
       const label = `Print ${what}` + (hlabel ? ` (${hlabel})` : "");
+      const pdfLabel = `Download ${what} PDF` + (hlabel ? ` (${hlabel})` : "");
       const file = `cardforge-${sec === "main" ? "cards" : slabel + "-index-cards"}${hlabel ? "-" + hlabel : ""}.html`;
-      jobs.push({ label, file, html: pageHtml(tpl, cards, { only, section: sec, stock }) });
+      jobs.push({ label, pdfLabel, file, html: pageHtml(tpl, cards, { only, section: sec, stock }) });
     }
     const copies = cards.reduce((a, c) => a + (c.copies || 1), 0);
     $("#res-status").textContent = `${copies} ${copies === 1 ? "card" : "cards"} ready`;
@@ -592,9 +593,21 @@
     for (const j of jobs) {
       const b = el("button", { type: "button", class: "btn", text: j.label });
       b.addEventListener("click", () => openHtml(j.html, j.file));
-      sheets.append(b);
+      j.group = el("div", { class: "job" }, b);
+      sheets.append(j.group);
     }
     out.append(sheets);
+    // the server can turn sheets into PDFs (the Card Forge container can; a plain static host can't)
+    pdfAvailable().then(ok => {
+      if (!ok) return;
+      for (const j of jobs) {
+        const b = el("button", { type: "button", class: "btn pdf", text: j.pdfLabel });
+        b.addEventListener("click", () => downloadPdf(b, j));
+        j.group.prepend(b);
+        j.group.querySelector(".btn:not(.pdf)").classList.add("ghost");
+      }
+      sheets.after(el("p", { class: "how", text: "Download PDF gives you a ready-made PDF file; print it at 100% (Actual size)." }));
+    });
     const how = S.split
       ? `Each sheet opens in a new tab; use Print there. Print the fronts, put the printed pages back in the tray turned over the ${S.duplex} edge, then print the backs.`
       : `Each sheet opens in a new tab; use Print there. Print double-sided, flipping on the ${S.duplex} edge.`;
@@ -611,6 +624,31 @@
     out.append(dl);
     out.hidden = false;
     $("#result").focus({ preventScroll: true });
+  }
+
+  let pdfOk = null;
+  async function pdfAvailable() {
+    if (pdfOk !== null) return pdfOk;
+    try {
+      const r = await fetch("api/pdf", { cache: "no-store" });
+      pdfOk = r.ok && (await r.json()).ok === true;
+    } catch (e) { pdfOk = false; }
+    return pdfOk;
+  }
+  async function downloadPdf(btn, job) {
+    const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Making the PDF…";
+    try {
+      const r = await fetch("api/pdf", { method: "POST", headers: { "Content-Type": "text/html; charset=utf-8", "X-Filename": job.file }, body: job.html });
+      if (!r.ok) throw new Error(r.status === 503 ? "the server is busy, try again in a minute" : (await r.text()).slice(0, 120) || `HTTP ${r.status}`);
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = el("a", { href: url, download: job.file.replace(/\.html$/, ".pdf") });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      toast(`Couldn't make the PDF (${e.message || e}). Use ${job.label} and choose Save as PDF instead.`);
+    } finally { btn.disabled = false; btn.textContent = label; }
   }
 
   function openHtml(html, name) {

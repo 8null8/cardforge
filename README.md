@@ -38,7 +38,9 @@ and gaps are filled with the next regular card, so no paper is wasted.
    the paper flips on, what long entries go on, index cards on paper or card stock, and the back-side offset.
 4. **Make cards.** The site fetches each entry, measures the cards, asks once if some entries need more than
    two sides, and gives you print sheets (one, or fronts and backs for a single-sided printer). Each opens in a
-   new tab; print it there, or choose *Save as PDF* to keep a copy.
+   new tab; print it there, or choose *Save as PDF* to keep a copy. When the site runs on a Card Forge container
+   there's also **Download PDF**: the server prints the sheet to a PDF file for you (same engine as the
+   offline tool), ready to print at 100%.
 
 The site downloads the game data from 5e.tools itself (or its GitHub copy when 5e.tools won't hand it to other
 sites) and keeps it in the browser for a week, so repeat runs are instant. Partnered books (e.g. *Book of Ebon
@@ -55,7 +57,7 @@ because browsers don't let a page loaded from a file read its neighbouring files
 ```
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/8null8/cardforge/main/hosting/proxmox-install.sh)"
 ```
-Answer the questions (Enter accepts the default: 1 core, 256 MB, 2 GB disk, DHCP). It creates an unprivileged
+Answer the questions (Enter accepts the default: 1 core, 1 GB memory, 4 GB disk, DHCP). It creates an unprivileged
 Debian container that starts on boot, installs nginx, clones this repository and prints the address, e.g.
 `http://192.168.1.50/`. From then on the container checks GitHub every hour and updates the site when something
 changed. To update straight away: `pct exec <container id> -- cardforge-update`
@@ -86,7 +88,13 @@ Netlify, Cloudflare Pages or any other static host work the same way.
 The collector script updates itself from `https://cards.arcvein.org/5etools-card-list.user.js` (its `@updateURL`)
 and sends lists there by default; change both at the top of the script if you host Card Forge somewhere else.
 
-Good to know: the server only hands out these files. Every visitor's list, settings and downloaded data stay in
+**PDF downloads** come from a small service in the container (`hosting/pdf-service.py`, installed by the setup
+scripts together with Chromium, about 400 MB). Give the container at least 1 GB of memory
+(`pct set <ID> --memory 1024`). It only listens inside the container; nginx forwards `/api/pdf` to it, and pages are
+rendered with all network access blocked. `PDF=0` in front of the setup command leaves it out. On static hosts
+(GitHub Pages, Cloudflare Pages) there's no server, so the site simply doesn't show the button.
+
+Good to know: apart from PDF downloads, the server only hands out these files. Every visitor's list, settings and downloaded data stay in
 their own browser. Card text belongs to its publishers, so keep a public copy for your group rather than
 advertising it.
 

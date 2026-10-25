@@ -85,8 +85,8 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
   background: rgba(0, 0, 0, .055); border-radius: 2.5pt; }
 .mgrid > div { flex: 1 1 auto; padding: .1em .35em; font-size: .95em; }
 .mgrid b { color: var(--c); }
-.abil { display: grid; grid-template-columns: repeat(6, 1fr); gap: .2em; text-align: center; margin: 0 0 .1em; font-size: .86em; }
-.abil > div { padding: .06em 0 .1em; white-space: nowrap; }
+.abil { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .2em; text-align: center; margin: 0 0 .1em; font-size: .86em; }
+.abil > div { padding: .06em 0 .1em; overflow-wrap: anywhere; }
 .abil .lbl { font-size: .85em; }
 .body .mbox { padding: .14em .35em; margin: 0 0 .25em; }
 .body .mbox > :last-child { margin-bottom: 0; }

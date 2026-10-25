@@ -635,8 +635,7 @@
     });
     out.append(dl);
     out.hidden = false;
-    setFolded($("#result"), false);
-    $("#result").focus({ preventScroll: true });
+    out.focus({ preventScroll: true });
   }
 
   let pdfOk = null;

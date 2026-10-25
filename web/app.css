@@ -47,7 +47,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .listcard { grid-column: 1; grid-row: 1 / span 2; }
 .settings { grid-column: 2; grid-row: 1; }
 .go { grid-column: 2; grid-row: 2; }
-.result { grid-column: 1 / -1; }
+.result, .outputs { grid-column: 1 / -1; }
 
 /* an index card: red rule under the title, pale blue lines below */
 .icard { position: relative; background: var(--card); color: var(--ink); border-radius: 3px;
@@ -156,7 +156,8 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 .log .line span.t { overflow-wrap: anywhere; }
 .log .busy .mark { animation: spin 1.1s linear infinite; display: inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.chooser, .outputs { padding: 1rem 1.5rem 1.4rem; border-top: 2px solid var(--redrule); }
+.chooser, .outputs { padding: 1rem 1.5rem 1.4rem; }
+.chooser { border-top: 2px solid var(--redrule); }
 .chooser h3, .outputs h3 { margin: 0 0 .3rem; font: 700 1.3rem var(--serif); }
 .chooser .cat { padding: .7rem 0; border-bottom: 1px solid #ece7dc; }
 .chooser .cat-head { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
@@ -201,7 +202,7 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 /* ---------------------------------------------------------------- narrow screens */
 @media (max-width: 62rem) {
   .table { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
-  .listcard, .settings, .go, .result { grid-column: 1; grid-row: auto; }
+  .listcard, .settings, .go, .result, .outputs { grid-column: 1; grid-row: auto; }
 }
 @media (max-width: 40rem) {
   .top { padding-top: 1.5rem; }

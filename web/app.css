@@ -56,6 +56,14 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
   border-bottom: 2px solid var(--redrule); }
 .icard-head h2 { margin: 0; font: 700 1.6rem/1.1 var(--serif); }
 .count { color: var(--muted); font-size: .98rem; }
+/* the title folds its card down to the title bar (a long list or log takes a lot of room) */
+.fold { background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer;
+  display: inline-flex; align-items: baseline; gap: .45rem; }
+.fold::before { content: "▾"; font-size: .7em; color: var(--muted); transition: transform .15s; }
+.fold:hover::before { color: var(--ink); }
+.folded .fold::before { transform: rotate(-90deg); }
+.icard.folded > :not(.icard-head), .folded .head-actions { display: none !important; }
+.icard.folded > .icard-head { border-bottom: 0; padding-bottom: 1.15rem; }
 .head-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: .1rem .9rem; }
 .ruled { padding: 0 1.5rem .75rem; min-height: calc(var(--line) * 9);
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px), var(--rule) var(--line)); }

@@ -34,6 +34,8 @@ and gaps are filled with the next regular card, so no paper is wasted.
    * install the **list collector** (below) and press **Send to Card Forge**: the site opens with your list loaded.
 2. **Check the list:** copies and a format per entry (Auto, Card, Card else index card, 3×5, 5×8),
    **Edit as text** for bulk changes, **Save list** to keep a `.txt` (it also works with the offline tool).
+   Click the **Your cards** title to fold a long list down to its title bar (the site remembers it); the
+   **Print sheets** card folds the same way and opens again when you make cards.
 3. **Printing settings** (remembered in your browser): paper size, double- or single-sided printer, which edge
    the paper flips on, what long entries go on, index cards on paper or card stock, and the back-side offset.
 4. **Make cards.** The site fetches each entry, measures the cards, asks once if some entries need more than

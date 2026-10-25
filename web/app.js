@@ -453,6 +453,17 @@
     saveSettings(); showSettings();
   }
 
+  // ------------------------------------------------------------------ folding cards
+  function setFolded(card, folded) {
+    card.classList.toggle("folded", folded);
+    $(".fold", card).setAttribute("aria-expanded", String(!folded));
+    if (card.id === "listcard") LS.set("cf.listFolded", folded);
+  }
+  for (const b of document.querySelectorAll(".icard .fold")) {
+    b.addEventListener("click", () => { const card = b.closest(".icard"); setFolded(card, !card.classList.contains("folded")); });
+  }
+  if (LS.get("cf.listFolded", false)) setFolded($("#listcard"), true);
+
   // ------------------------------------------------------------------ result card
   const logBox = $("#log");
   function logLine(type, text) {
@@ -478,7 +489,7 @@
     const btn = $("#btn-make");
     btn.disabled = true; btn.textContent = "Making cards…";
     const res = $("#result");
-    res.hidden = false; logBox.textContent = ""; $("#chooser").hidden = true; $("#outputs").hidden = true;
+    res.hidden = false; setFolded(res, false); logBox.textContent = ""; $("#chooser").hidden = true; $("#outputs").hidden = true;
     $("#res-status").textContent = "";
     res.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     try {
@@ -533,6 +544,7 @@
     box.textContent = "";
     const total = Object.values(d.candidates).reduce((a, l) => a + l.length, 0);
     $("#res-status").textContent = "One question first";
+    setFolded($("#result"), false);
     box.append(el("h3", { text: `${total} ${total === 1 ? "entry needs" : "entries need"} more than two card sides` }),
       el("p", { class: "note", text: "Choose what to print them on. Your choice is remembered for next time." }));
     const choices = {}, each = new Map();
@@ -623,6 +635,7 @@
     });
     out.append(dl);
     out.hidden = false;
+    setFolded($("#result"), false);
     $("#result").focus({ preventScroll: true });
   }
 

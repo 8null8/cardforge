@@ -29,7 +29,7 @@
 
   <section class="icard listcard" id="listcard" aria-labelledby="list-h">
     <div class="icard-head">
-      <h2 id="list-h">Your cards</h2>
+      <h2 id="list-h"><button type="button" class="fold" aria-expanded="true">Your cards</button></h2>
       <span class="count" id="count" aria-live="polite"></span>
       <div class="head-actions">
         <button type="button" class="link" id="btn-add">Paste links</button>
@@ -142,7 +142,7 @@
   </section>
 
   <section class="icard result" id="result" hidden aria-labelledby="res-h" tabindex="-1">
-    <div class="icard-head"><h2 id="res-h">Print sheets</h2><span class="count" id="res-status" aria-live="polite"></span></div>
+    <div class="icard-head"><h2 id="res-h"><button type="button" class="fold" aria-expanded="true">Print sheets</button></h2><span class="count" id="res-status" aria-live="polite"></span></div>
     <div class="ruled log" id="log"></div>
     <div class="chooser" id="chooser" hidden></div>
     <div class="outputs" id="outputs" hidden></div>

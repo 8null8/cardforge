@@ -26,7 +26,7 @@
 </header>
 
 <main class="table">
-
+  <div class="col-main">
   <section class="icard listcard" id="listcard" aria-labelledby="list-h">
     <div class="icard-head">
       <h2 id="list-h"><button type="button" class="fold" aria-expanded="true">Your cards</button></h2>
@@ -62,6 +62,15 @@
     <div class="drop-hint" aria-hidden="true">Drop it here</div>
   </section>
 
+  <section class="icard result" id="result" hidden aria-labelledby="res-h" tabindex="-1">
+    <div class="icard-head"><h2 id="res-h"><button type="button" class="fold" aria-expanded="true">Print sheets</button></h2><span class="count" id="res-status" aria-live="polite"></span></div>
+    <div class="ruled log" id="log"></div>
+    <div class="chooser" id="chooser" hidden></div>
+  </section>
+  <section class="icard outputs" id="outputs" hidden aria-label="Your print sheets" tabindex="-1"></section>
+  </div>
+
+  <div class="col-side">
   <section class="icard blank settings" aria-labelledby="set-h">
     <div class="icard-head"><h2 id="set-h">Printing</h2></div>
     <form id="settings" class="set-body" onsubmit="return false">
@@ -140,14 +149,7 @@
     <button type="button" class="primary" id="btn-make">Make cards</button>
     <p id="go-hint" class="go-hint"></p>
   </section>
-
-  <section class="icard result" id="result" hidden aria-labelledby="res-h" tabindex="-1">
-    <div class="icard-head"><h2 id="res-h"><button type="button" class="fold" aria-expanded="true">Print sheets</button></h2><span class="count" id="res-status" aria-live="polite"></span></div>
-    <div class="ruled log" id="log"></div>
-    <div class="chooser" id="chooser" hidden></div>
-  </section>
-
-  <section class="icard outputs" id="outputs" hidden aria-label="Your print sheets" tabindex="-1"></section>
+  </div>
 </main>
 
 <footer class="foot">

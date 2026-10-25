@@ -41,13 +41,9 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 
 /* ---------------------------------------------------------------- the table */
 .table { max-width: 74rem; margin: 0 auto; padding: 0 1.25rem 2rem; display: grid; gap: 1.75rem;
-  grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 1fr); align-items: start;
-  /* a long list grows the second row only, so Make cards stays right under Printing */
-  grid-template-rows: auto 1fr; }
-.listcard { grid-column: 1; grid-row: 1 / span 2; }
-.settings { grid-column: 2; grid-row: 1; }
-.go { grid-column: 2; grid-row: 2; }
-.result, .outputs { grid-column: 1 / -1; }
+  grid-template-columns: minmax(0, 1.65fr) minmax(19rem, 1fr); align-items: start; }
+/* two columns: list, log and sheets on the left; settings and Make cards on the right */
+.col-main, .col-side { display: flex; flex-direction: column; gap: 1.75rem; min-width: 0; }
 
 /* an index card: red rule under the title, pale blue lines below */
 .icard { position: relative; background: var(--card); color: var(--ink); border-radius: 3px;
@@ -201,8 +197,10 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 
 /* ---------------------------------------------------------------- narrow screens */
 @media (max-width: 62rem) {
-  .table { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
-  .listcard, .settings, .go, .result, .outputs { grid-column: 1; grid-row: auto; }
+  .table { grid-template-columns: minmax(0, 1fr); }
+  /* one column: list, settings, Make cards, then the results */
+  .col-main, .col-side { display: contents; }
+  .settings { order: 1; } .go { order: 2; } .result { order: 3; } .outputs { order: 4; }
 }
 @media (max-width: 40rem) {
   .top { padding-top: 1.5rem; }

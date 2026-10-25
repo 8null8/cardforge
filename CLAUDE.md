@@ -17,5 +17,7 @@ Rules:
 
 - Any change to how cards are built goes into BOTH `cardforge.py` and `web/core.js`, then run
   `CF_DATA=<5etools-src>/data bash tests/parity/run_all.sh` - every card must stay identical.
-- `main` is live: the user's container (cards.arcvein.org) pulls it every hour. Test before pushing.
+- `main` is live: the user's container (cards.arcvein.org, Proxmox LXC 102) pulls it every hour. Test before
+  pushing. Update now from the Proxmox host: `pct exec 102 -- /usr/local/bin/cardforge-update` (`pct exec`'s
+  PATH has no /usr/local/bin, so the short name fails there).
 - Keep README.md in step with user-visible changes.

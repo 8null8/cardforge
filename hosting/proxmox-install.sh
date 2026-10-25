@@ -135,7 +135,7 @@ say "All done"
 echo "  Card Forge:  http://$CT_IP/"
 echo "  Console:     pct enter $CTID"
 if [[ "$GH" =~ ^[Yy] ]]; then
-	echo "  Updates:     automatic every hour from github.com/$CF_REPO; right now: pct exec $CTID -- cardforge-update"
+	echo "  Updates:     automatic every hour from github.com/$CF_REPO; right now: pct exec $CTID -- /usr/local/bin/cardforge-update"
 else
 	echo "  Update:      unzip a newer Card Forge on this host, then: bash hosting/proxmox-install.sh update $CTID"
 fi

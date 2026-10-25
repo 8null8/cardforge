@@ -62,7 +62,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/8null8/cardforge/main/ho
 Answer the questions (Enter accepts the default: 1 core, 1 GB memory, 4 GB disk, DHCP). It creates an unprivileged
 Debian container that starts on boot, installs nginx, clones this repository and prints the address, e.g.
 `http://192.168.1.50/`. From then on the container checks GitHub every hour and updates the site when something
-changed. To update straight away: `pct exec <container id> -- cardforge-update`
+changed. To update straight away: `pct exec <container id> -- /usr/local/bin/cardforge-update`
 (`journalctl -u cardforge-update` inside the container shows what the hourly checks did).
 
 * **Already have a Card Forge container** (made from the zip)? Switch it to GitHub updates:

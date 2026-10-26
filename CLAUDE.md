@@ -21,3 +21,9 @@ Rules:
   pushing. Update now from the Proxmox host: `pct exec 102 -- /usr/local/bin/cardforge-update` (`pct exec`'s
   PATH has no /usr/local/bin, so the short name fails there).
 - Keep README.md in step with user-visible changes.
+- Every change the user asks for also goes into the offline tool where it applies (`cardforge.py`, and
+  `card_template.html` / the collector, which ship with it), then gets released: bump `VERSION` in `cardforge.py`
+  (1.8 -> 1.9 ...), commit, push `main`, write short user-facing release notes and run
+  `bash tools/release.sh <version> <notes.md>` (tags `v<version>`, creates the GitHub release with
+  `cardforge-offline-<version>.zip`, refreshes `../5e-cardforge.zip`). Website-only changes (page layout,
+  `web/app.*`, `index.html`) have no offline counterpart: say so, and release only when the offline files changed.

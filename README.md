@@ -47,6 +47,11 @@ and gaps are filled with the next regular card, so no paper is wasted.
    new tab; print it there, or choose *Save as PDF* to keep a copy. When the site runs on a Card Forge container
    there's also **Download PDF**: the server prints the sheet to a PDF file for you (same engine as the
    offline tool), ready to print at 100%.
+5. **Or make card images (PNG)** with the button under *Make cards*: one picture per card for virtual tabletops,
+   phones and chat. Each is the card's front at the size it needs (a standard card is 720 × 1008 px); nothing is
+   split over several cards and there's no back, so long entries get a second or third column and a wider image
+   instead. Click a preview to save it, or **Download all** as a .zip. Pictures follow the *Pictures* setting
+   (any choice but *None* puts the artwork under the title).
 
 The site downloads the game data from 5e.tools itself (or its GitHub copy when 5e.tools won't hand it to other
 sites) and keeps it in the browser for a week, so repeat runs are instant. Partnered books (e.g. *Book of Ebon
@@ -189,6 +194,13 @@ Options (only needed if you want to skip the questions, e.g. in a script):
 | `--back-offset X,Y` | shift every back by X,Y mm to match your printer (remembered; `0,0` resets) |
 | `--brew-dir path` | local copy of the homebrew / unearthed-arcana repository (offline use) |
 
+**Card images (PNG) instead of print sheets:** `cardforge_png.py` makes one image per card, like the website's
+*Make card images* button: the card's front at the size it needs, no back, long entries in extra columns.
+Drag a list `.txt` onto `make_images.bat` (Windows), or `./make_images.sh my-list.txt` / `python cardforge_png.py list.txt`.
+It asks whether to add pictures (`--images on|off`) and saves `<list>-images/01 Name.png`, `02 ...` next to the
+list (`-o folder` for another place; `--scale 4` for bigger images, default 3 = 288 dpi). It needs
+`cardforge.py` in the same folder and Chrome, Edge, Chromium or Brave to draw the images.
+
 ## Printing
 
 Print **double-sided** at **100% / actual size**, **margins: none**, **background graphics: on**.
@@ -319,6 +331,9 @@ rarity, creatures are dark red, spell scrolls are brown (`SCROLL_COLOR`), and cl
 * `cardforge.py` (offline tool) and `web/core.js` (website) are the same card builder in two languages, kept
   line-for-line alike. Change one, change the other the same way.
 * `card_template.html` holds the card layout engine, styles and card backs; both versions use it unchanged.
+  Its image mode (`cfg.png`) draws each card as a PNG in the browser; the website and `cardforge_png.py` both use it.
+* `cardforge_png.py` (card images) imports `cardforge.py` for everything but the drawing: options, questions and
+  fetching changes in `cardforge.py` must keep working there too.
 * `tests/parity/run_all.sh` builds about 17,000 entries with both and checks they come out identical:
   `CF_DATA=/path/to/5etools-src/data bash tests/parity/run_all.sh` (data from
   `git clone --depth 1 https://github.com/5etools-mirror-3/5etools-src`).

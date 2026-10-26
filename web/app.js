@@ -485,44 +485,62 @@
   }
   function endBusy() { if (busyLine) busyLine.remove(); busyLine = null; }
 
+  /** get the list's cards from 5e.tools, logging every entry; null (after explaining) when none could be made */
+  async function buildCards() {
+    busy(`Getting ${entries.length} ${entries.length === 1 ? "entry" : "entries"} from 5e.tools…`);
+    const run = entries.slice();
+    const { cards, log } = await C.build(toText(run), { load, store: STORE, images: S.images !== "off", onEntry: msg => { if (msg.startsWith("Downloading")) busy(msg); } });
+    endBusy();
+    status.clear();
+    for (const x of log) {
+      if (x.type === "ok") {
+        const e = run[x.i];
+        if (e) {
+          status.set(e, { name: x.card.name });
+          if (e.kind === "link") e.label = `${describe(e).kind}: ${x.card.name}`;
+        }
+        logLine("ok", x.text);
+      } else if (x.type === "error") {
+        const e = run[x.i];
+        if (e) status.set(e, { error: x.reason });
+        logLine("error", `${e ? describe(e).name : ""}: ${x.reason}`);
+      } else logLine("warn", x.text);
+    }
+    saveList(); renderRows();
+    if (!cards.length) {
+      $("#res-status").textContent = "No cards could be made";
+      logLine("info", "Check the links: they need to point at one entry, e.g. https://5e.tools/spells.html#fireball_xphb");
+      if (log.some(x => x.type === "error" && /Could not download/.test(x.reason))) logLine("info", "The 5e.tools data couldn't be downloaded. Check your connection, or set a data source under More options.");
+      return null;
+    }
+    return cards;
+  }
+
   let running = false;
-  async function make() {
+  /** kind "sheets": print sheets (Make cards); kind "images": one PNG per card (Make card images) */
+  async function make(kind) {
     if (running) return;
     readSettings();
     if (!entries.length) { toast("Add some 5e.tools links first"); $("#btn-add").focus(); return; }
     running = true;
-    const btn = $("#btn-make");
-    btn.disabled = true; btn.textContent = "Making cards…";
+    const images = kind === "images";
+    const btn = $(images ? "#btn-png" : "#btn-make"), label = btn.textContent;
+    $("#btn-make").disabled = $("#btn-png").disabled = true;
+    btn.textContent = images ? "Making card images…" : "Making cards…";
     const res = $("#result");
+    $("#res-h .fold").textContent = images ? "Card images" : "Print sheets";
     res.hidden = false; setFolded(res, false); logBox.textContent = ""; $("#chooser").hidden = true; $("#outputs").hidden = true;
     $("#res-status").textContent = "";
     res.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     try {
       const tpl = await template();
-      busy(`Getting ${entries.length} ${entries.length === 1 ? "entry" : "entries"} from 5e.tools…`);
-      const run = entries.slice();
-      const { cards, log } = await C.build(toText(run), { load, store: STORE, images: S.images !== "off", onEntry: msg => { if (msg.startsWith("Downloading")) busy(msg); } });
-      endBusy();
-      status.clear();
-      for (const x of log) {
-        if (x.type === "ok") {
-          const e = run[x.i];
-          if (e) {
-            status.set(e, { name: x.card.name });
-            if (e.kind === "link") e.label = `${describe(e).kind}: ${x.card.name}`;
-          }
-          logLine("ok", x.text);
-        } else if (x.type === "error") {
-          const e = run[x.i];
-          if (e) status.set(e, { error: x.reason });
-          logLine("error", `${e ? describe(e).name : ""}: ${x.reason}`);
-        } else logLine("warn", x.text);
-      }
-      saveList(); renderRows();
-      if (!cards.length) {
-        $("#res-status").textContent = "No cards could be made";
-        logLine("info", "Check the links: they need to point at one entry, e.g. https://5e.tools/spells.html#fireball_xphb");
-        if (log.some(x => x.type === "error" && /Could not download/.test(x.reason))) logLine("info", "The 5e.tools data couldn't be downloaded. Check your connection, or set a data source under More options.");
+      const cards = await buildCards();
+      if (!cards) return;
+      if (images) {
+        busy(`Drawing ${cards.length} card image${cards.length === 1 ? "" : "s"}…`);
+        const r = await drawImages(cards, tpl);
+        endBusy();
+        showImages(r);
         return;
       }
       busy("Measuring the cards…");
@@ -538,11 +556,101 @@
       else logLine("error", `Something went wrong: ${e.message || e}`);
       $("#res-status").textContent = "Stopped";
     } finally {
-      running = false; btn.disabled = false; btn.textContent = "Make cards";
+      running = false; $("#btn-make").disabled = $("#btn-png").disabled = false; btn.textContent = label;
       updateHint();
     }
   }
-  $("#btn-make").addEventListener("click", make);
+  $("#btn-make").addEventListener("click", () => make("sheets"));
+  $("#btn-png").addEventListener("click", () => make("images"));
+
+  // ------------------------------------------------------------------ card images
+  /** the card template draws every card as a PNG in an invisible frame -> {images: [{name, w, h, url} | {name, error}], notes} */
+  function drawImages(cards, tpl) {
+    return new Promise(resolve => {
+      const f = el("iframe", { class: "measure-frame", "aria-hidden": "true", tabindex: "-1", title: "drawing" });
+      let timer = null, poll = null;
+      const done = v => { clearTimeout(timer); clearInterval(poll); f.remove(); resolve(v); };
+      const read = () => {
+        try {
+          const r = f.contentWindow && f.contentWindow.CF_PNG;
+          if (!r) return false;
+          done(r);
+          return true;
+        } catch (e) { done(null); return true; }
+      };
+      timer = setTimeout(() => done(null), 300000);
+      f.addEventListener("load", () => { if (!read()) poll = setInterval(read, 250); });
+      f.srcdoc = pageHtml(tpl, cards, { png: true, pngScale: 3 });
+      document.body.append(f);
+    });
+  }
+  /** a card name as a file name that works everywhere (same rule as cardforge_png.py) */
+  const safeName = n => String(n).replace(/[<>:"/\\|?*\x00-\x1f]/g, "").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 80) || "card";
+  const CRC_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+    return t;
+  })();
+  const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  /** a .zip of [{name, data: Uint8Array}], stored without compression (PNGs are compressed already) */
+  function zip(files) {
+    const enc = new TextEncoder(), now = new Date(), parts = [], central = [];
+    const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+    let off = 0;
+    for (const f of files) {
+      const name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+      const h = new DataView(new ArrayBuffer(30));
+      h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true);   // 0x0800: UTF-8 name
+      h.setUint16(10, time, true); h.setUint16(12, date, true); h.setUint32(14, crc, true);
+      h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+      parts.push(h, name, f.data);
+      const c = new DataView(new ArrayBuffer(46));
+      c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint16(12, time, true); c.setUint16(14, date, true); c.setUint32(16, crc, true);
+      c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+      central.push(c, name);
+      off += 30 + name.length + n;
+    }
+    const size = central.reduce((a, x) => a + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+    e.setUint32(12, size, true); e.setUint32(16, off, true);
+    return new Blob([...parts, ...central, e], { type: "application/zip" });
+  }
+  let imageUrls = [];
+  function showImages(r) {
+    const out = $("#outputs");
+    out.textContent = "";
+    imageUrls.forEach(u => URL.revokeObjectURL(u)); imageUrls = [];
+    if (!r) { $("#res-status").textContent = "Stopped"; logLine("error", "This browser couldn't draw the card images. Try Chrome, Edge or Firefox."); return; }
+    for (const n of r.notes || []) logLine("warn", n);
+    for (const x of r.images || []) if (x.error) logLine("error", `${x.name}: ${x.error}`);
+    const ok = (r.images || []).filter(x => x.url);
+    if (!ok.length) { $("#res-status").textContent = "No images could be made"; return; }
+    const pad = Math.max(2, String(ok.length).length);
+    const files = ok.map((x, i) => ({
+      name: `${String(i + 1).padStart(pad, "0")} ${safeName(x.name)}.png`, title: x.name, w: x.w, h: x.h,
+      data: Uint8Array.from(atob(x.url.split(",")[1]), ch => ch.charCodeAt(0)),
+    }));
+    $("#res-status").textContent = `${files.length} card image${files.length === 1 ? "" : "s"} ready`;
+    out.append(el("h3", { text: files.length === 1 ? "Your card image is ready" : "Your card images are ready" }));
+    if (files.length > 1) {
+      out.append(el("div", { class: "sheets" }, el("button", {
+        type: "button", class: "btn", text: `Download all ${files.length} (.zip)`,
+        onclick: () => download("cardforge-card-images.zip", zip(files), "application/zip"),
+      })));
+    }
+    const gallery = el("div", { class: "gallery" });
+    for (const f of files) {
+      const url = URL.createObjectURL(new Blob([f.data], { type: "image/png" }));
+      imageUrls.push(url);
+      gallery.append(el("a", { href: url, download: f.name, class: "thumb", title: `Save ${f.name}` },
+        el("img", { src: url, alt: f.title }), el("span", { text: `${f.title} · ${f.w} × ${f.h} px` })));
+    }
+    out.append(gallery, el("p", { class: "how", text: "Click a card to save it. Each image is the card's front at the size it needs (a standard card is 720 × 1008 px); long entries get extra columns instead of a second card." }));
+    out.hidden = false;
+    out.focus({ preventScroll: true });
+  }
 
   function showChooser(d, tpl) {
     const box = $("#chooser");

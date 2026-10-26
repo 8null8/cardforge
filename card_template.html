@@ -153,6 +153,16 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .sheet.s35 { page: s35; }
 .sheet.s58 { page: s58; }
 
+/* card images (Make card images / cardforge_png.py): the front only, as tall as the entry needs;
+   long entries get a second or third column (--cols) and a wider image instead of a very tall one */
+#sheets.pngs { display: flex; flex-wrap: wrap; gap: 18px; padding: 18px; align-items: flex-start; }
+.panel.png { --cols: 1; width: calc(2.5in + (var(--cols) - 1) * 2.2in); height: auto; min-height: 3.5in;
+  display: flex; flex-direction: column; }
+.panel.png .frame { position: relative; inset: auto; flex: 1 1 auto; margin: .075in; }
+.panel.png .body { overflow: visible; column-count: var(--cols); column-gap: .18in; column-rule: .5pt solid rgba(0,0,0,.12); }
+.panel.png .body .mbox, .panel.png .body h4 { break-inside: avoid; }
+.panel.png .body h4 { break-after: avoid; }
+
 /* decorative back */
 .panel.back { background: none; }
 .panel.back svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -200,7 +210,8 @@ const DATA = /*__DATA__*/null;
   };
 
   // pictures: tokens suit the round medallion on the back, the artwork the strip on the front
-  const IMAGES = ["back", "front"].includes(cfg.images) ? cfg.images : "off";
+  const IMAGES = cfg.png ? (["back", "front"].includes(cfg.images) ? "front" : "off")   // an image has no back
+    : ["back", "front"].includes(cfg.images) ? cfg.images : "off";
   function pic(card, where) {   // -> [address, isToken] or null
     const im = card.img;
     if (IMAGES !== where || !im) return null;
@@ -633,6 +644,84 @@ const DATA = /*__DATA__*/null;
     const pre = document.createElement("pre"); pre.id = "measure-result";
     pre.textContent = "@@RES" + "ULT@@" + JSON.stringify(res) + "@@E" + "ND@@";
     document.body.append(pre);
+    return;
+  }
+
+  // ---------------------------------------------------------------- card images (used by the website and cardforge_png.py)
+  // One PNG per entry instead of print sheets: the front at whatever size it needs, no back. Long entries get a
+  // second or third column (a wider image) rather than growing very tall. Results: window.CF_PNG, and #png-result
+  // for --dump-dom.  Each card is drawn by putting its HTML in an SVG <foreignObject> and painting that on a canvas.
+  const PNG_FONT = 8;   // pt: the largest size the printed cards use
+  function pngPanel(card, cols) {
+    const p = makePanel(card, 0, PNG_FONT, "card");
+    p.classList.add("png");
+    p.style.setProperty("--cols", cols);
+    const body = p.querySelector(".body");
+    for (const b of card.blocks) { const n = node(b.h); if (n) body.append(n); }
+    return p;
+  }
+  function pngLayout(card) {   // the fewest columns that keep the image roughly card-shaped
+    for (const cols of [1, 2, 3]) {
+      const p = pngPanel(card, cols);
+      measure.append(p);
+      if (cols === 3 || p.offsetHeight <= p.offsetWidth * 1.5) return p;
+      p.remove();
+    }
+  }
+  async function dataUrl(src) {   // pictures must be inside the image itself
+    const r = await fetch(src);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const b = await r.blob();
+    return new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = () => no(fr.error); fr.readAsDataURL(b); });
+  }
+  const PNG_CSS = document.querySelector("style").textContent.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  function rasterize(p, scale) {
+    const box = p.getBoundingClientRect(), w = Math.ceil(box.width), h = Math.ceil(box.height);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w * scale}" height="${h * scale}" viewBox="0 0 ${w} ${h}">`
+      + `<foreignObject x="0" y="0" width="${w}" height="${h}"><div xmlns="http://www.w3.org/1999/xhtml" lang="en" style="width:${w}px;height:${h}px">`
+      + `<style>${PNG_CSS}</style>${new XMLSerializer().serializeToString(p)}</div></foreignObject></svg>`;
+    return new Promise((ok, no) => {
+      const im = new Image();
+      im.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        try { ok({ w: c.width, h: c.height, url: c.toDataURL("image/png") }); } catch (e) { no(e); }
+      };
+      im.onerror = () => no(new Error("the browser couldn't draw this card"));
+      im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    });
+  }
+  function finishPngs(images, notes) {
+    window.CF_PNG = { images, notes };
+    const pre = document.createElement("pre"); pre.id = "png-result"; pre.hidden = true;
+    pre.textContent = "@@P" + "NG@@" + JSON.stringify(window.CF_PNG) + "@@E" + "ND@@";
+    document.body.append(pre);
+    const ok = images.filter(x => x.url).length;
+    document.getElementById("summary").textContent = `${ok} card image${ok === 1 ? "" : "s"}`;
+    document.querySelector(".bar button").remove();
+    document.querySelector(".bar .tip").textContent = "Card images: each card's front at the size it needs, no back.";
+    document.body.dataset.ready = "1";
+  }
+  async function makePngs() {
+    const scale = Math.max(1, Math.min(6, Number(cfg.pngScale) || 3)), notes = [], images = [];
+    if (document.fonts) await document.fonts.ready;
+    for (const card of DATA.cards) {
+      const im = card.img, src = im && (im.art || im.token);
+      if (IMAGES !== "front" || !src) { delete card.img; continue; }
+      try { card.img = { art: await dataUrl(src), token: null }; }
+      catch (e) { delete card.img; notes.push(`${card.name}: the picture couldn't be loaded, so the image has none`); }
+    }
+    sheetsEl.classList.add("pngs");
+    const panels = DATA.cards.map(card => { const p = pngLayout(card); sheetsEl.append(p); return p; });
+    for (let i = 0; i < panels.length; i++) {
+      try { images.push({ name: DATA.cards[i].name, ...(await rasterize(panels[i], scale)) }); }
+      catch (e) { images.push({ name: DATA.cards[i].name, error: String((e && e.message) || e) }); }
+    }
+    finishPngs(images, notes);
+  }
+  if (cfg.png) {
+    makePngs().catch(e => finishPngs([], [`Couldn't draw the card images: ${(e && e.message) || e}`]));
     return;
   }
 

@@ -80,6 +80,10 @@ button { font: inherit; color: inherit; }
 .primary:hover { background: #ddb862; }
 .primary:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--brass-deep), 0 6px 14px rgba(0, 0, 0, .3); }
 .primary:disabled { opacity: .6; cursor: progress; transform: none; }
+.primary.alt { margin-top: 1rem; padding: .75rem 1.5rem; font-size: 1.1rem; background: none; color: var(--brass);
+  box-shadow: inset 0 0 0 2px var(--brass); }
+.primary.alt:hover { background: rgba(212, 172, 85, .12); }
+.primary.alt:active { transform: translateY(1px); box-shadow: inset 0 0 0 2px var(--brass); }
 .go-hint { margin: .7rem .1rem 0; color: #d9e3dc; font-size: .98rem; min-height: 1.5em; }
 
 /* ---------------------------------------------------------------- list rows (one per blue line) */
@@ -171,6 +175,13 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 .outputs .how { margin: .2rem 0; color: var(--ink-soft); max-width: 46rem; }
 .outputs ul.notes { margin: .5rem 0; padding-left: 1.2rem; color: var(--ink-soft); }
 .outputs .dl { font-size: .95rem; color: var(--muted); }
+/* card images: a gallery of previews, each one a download link */
+.outputs .gallery { display: flex; flex-wrap: wrap; gap: 1rem 1.25rem; align-items: flex-end; margin: .8rem 0 1rem; }
+.outputs .thumb { display: flex; flex-direction: column; gap: .35rem; max-width: 15rem; color: var(--ink-soft);
+  font-size: .9rem; text-decoration: none; }
+.outputs .thumb img { align-self: flex-start; max-width: 15rem; max-height: 14rem; border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .28); }
+.outputs .thumb:hover span, .outputs .thumb:focus-visible span { text-decoration: underline; }
 
 /* ---------------------------------------------------------------- footer */
 .foot { max-width: 74rem; margin: 0 auto; padding: .5rem 1.25rem 3rem; color: #dfe7e1; }

@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap">
-<link rel="stylesheet" href="web/app.css">
+<link rel="stylesheet" href="web/app.css?v=1.10">
 </head>
 <body>
 
@@ -157,6 +157,8 @@
   <section class="go">
     <button type="button" class="primary" id="btn-make">Make cards</button>
     <p id="go-hint" class="go-hint"></p>
+    <button type="button" class="primary alt" id="btn-png">Make card images (PNG)</button>
+    <p class="go-hint">One picture per card, sized to fit, with no back: for virtual tabletops, phones and chat.</p>
   </section>
   </div>
 </main>
@@ -181,7 +183,7 @@
 <input type="file" id="file" accept=".txt,.list,.json,text/plain,application/json" multiple hidden>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span id="toast-text"></span><button type="button" id="toast-act" hidden></button></div>
 
-<script src="web/core.js"></script>
-<script src="web/app.js"></script>
+<script src="web/core.js?v=1.10"></script>
+<script src="web/app.js?v=1.10"></script>
 </body>
 </html>

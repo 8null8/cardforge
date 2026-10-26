@@ -27,7 +27,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.9"
+VERSION = "1.10"
 SCRIPT_DIR = Path(__file__).resolve().parent
 TEMPLATE = SCRIPT_DIR / "card_template.html"
 
@@ -2544,6 +2544,46 @@ def run_calibration(a):
     return 0
 
 
+def data_for(links, data_dir=None, refresh=False, brew_dirs=None):
+    """The data source for these links: links from a 5etools mirror read that mirror's data first."""
+    extra = None
+    for l, _, _ in links:
+        if isinstance(l, (ListSpec, LootSpec)):
+            if not l.urls:
+                continue
+            l = l.urls[0]
+        u = urllib.parse.urlparse(l)
+        if u.netloc and u.netloc not in ("5e.tools", "www.5e.tools"):
+            extra = f"{u.scheme}://{u.netloc}{u.path.rsplit('/', 1)[0]}/data/"
+            break
+    return Data(data_dir, refresh, extra, brew_dirs=brew_dirs)
+
+
+def fetch_cards(links, res):
+    """A card for every link (also used by cardforge_png.py); entries that fail are reported and left out."""
+    cards = []
+    print(f"Fetching {len(links)} entr{'y' if len(links) == 1 else 'ies'}...")
+    for link, n, want in links:
+        try:
+            if isinstance(link, (ListSpec, LootSpec)):
+                c = res.build_list(link) if isinstance(link, ListSpec) else res.build_loot(link)
+                # a list that's too long for one card carries on over several cards of this kind
+                c["multiFmt"] = {"card": "fold", "card-index": "5x8", "3x5": "3x5", "5x8": "5x8"}[want or "card"]
+                want = want or "card"
+            else:
+                c = res.resolve(link)
+            c["copies"] = n
+            if want:
+                c["want"] = want
+            cards.append(c)
+            extra_info = (f" (loot, {len(link.items)} magic items)" if isinstance(link, LootSpec)
+                          else f" ({c['sub'].split(' ')[0]} entries)" if c.get("isList") else "")
+            print(f"  + {c['name']}{extra_info}" + (f"  x{n}" if n > 1 else ""))
+        except Exception as e:
+            warn(f"{link}\n      {e}")
+    return cards
+
+
 def ask(question, options, default):
     """options: list of (key, value, label). Enter keeps the default."""
     labels = "  ".join(f"[{k}] {lab}{' *' if v == default else ''}" for k, v, lab in options)
@@ -2884,38 +2924,8 @@ def main(argv=None):
     out = Path(a.out) if a.out else (first_txt.with_name(first_txt.stem + "-cards") if first_txt else Path.cwd() / "cards")
     out = out.with_suffix("") if out.suffix.lower() in (".html", ".pdf") else out
 
-    extra = None
-    for l, _, _ in links:
-        if isinstance(l, (ListSpec, LootSpec)):
-            if not l.urls:
-                continue
-            l = l.urls[0]
-        u = urllib.parse.urlparse(l)
-        if u.netloc and u.netloc not in ("5e.tools", "www.5e.tools"):
-            extra = f"{u.scheme}://{u.netloc}{u.path.rsplit('/', 1)[0]}/data/"
-            break
-    data = Data(a.data_dir, a.refresh, extra, brew_dirs=a.brew_dir)
-    res = Resolver(data, images=a.images != "off")
-    cards = []
-    print(f"Fetching {len(links)} entr{'y' if len(links) == 1 else 'ies'}...")
-    for link, n, want in links:
-        try:
-            if isinstance(link, (ListSpec, LootSpec)):
-                c = res.build_list(link) if isinstance(link, ListSpec) else res.build_loot(link)
-                # a list that's too long for one card carries on over several cards of this kind
-                c["multiFmt"] = {"card": "fold", "card-index": "5x8", "3x5": "3x5", "5x8": "5x8"}[want or "card"]
-                want = want or "card"
-            else:
-                c = res.resolve(link)
-            c["copies"] = n
-            if want:
-                c["want"] = want
-            cards.append(c)
-            extra_info = (f" (loot, {len(link.items)} magic items)" if isinstance(link, LootSpec)
-                          else f" ({c['sub'].split(' ')[0]} entries)" if c.get("isList") else "")
-            print(f"  + {c['name']}{extra_info}" + (f"  x{n}" if n > 1 else ""))
-        except Exception as e:
-            warn(f"{link}\n      {e}")
+    data = data_for(links, a.data_dir, a.refresh, a.brew_dir)
+    cards = fetch_cards(links, Resolver(data, images=a.images != "off"))
     if not cards:
         print("Nothing to make.")
         return 1

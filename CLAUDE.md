@@ -6,7 +6,11 @@ Card Forge turns 5e.tools entries into printable cards. Two front ends share one
 - `web/core.js`: card builder for the website. A line-for-line port of `cardforge.py`: same function names,
   same output. Python truthiness, `str()`, `.title()` etc. are emulated with the helpers at the top.
 - `cardforge.py`: the offline tool (Python 3.8+, stdlib only; headless Chrome for measuring and PDFs).
-- `card_template.html`: layout engine, styles and card backs, used unchanged by both.
+- `cardforge_png.py`: the second offline script, card images (one PNG per card, no back). It imports
+  `cardforge.py` (`data_for`, `fetch_cards`, `Resolver`, `run_dom`, settings, questions) and only adds the drawing.
+- `card_template.html`: layout engine, styles and card backs, used unchanged by both. Image mode (`cfg.png`)
+  draws each card as a PNG in the browser (SVG foreignObject -> canvas) for the website's *Make card images*
+  button and `cardforge_png.py` alike.
 - `5etools-card-list.user.js`: the Tampermonkey list collector. Bump `@version` on every change - installed
   copies update themselves from `https://cards.arcvein.org/5etools-card-list.user.js`.
 - `hosting/`: Proxmox LXC installer, nginx setup, the GitHub auto-update mode (`github-setup.sh`) and the
@@ -21,9 +25,14 @@ Rules:
   pushing. Update now from the Proxmox host: `pct exec 102 -- /usr/local/bin/cardforge-update` (`pct exec`'s
   PATH has no /usr/local/bin, so the short name fails there).
 - Keep README.md in step with user-visible changes.
-- Every change the user asks for also goes into the offline tool where it applies (`cardforge.py`, and
-  `card_template.html` / the collector, which ship with it), then gets released: bump `VERSION` in `cardforge.py`
-  (1.8 -> 1.9 ...), commit, push `main`, write short user-facing release notes and run
+- There are two Python scripts: keep BOTH up to date. A change to the cards, options or settings goes into
+  `cardforge.py` and, where it applies to card images, `cardforge_png.py` too (e.g. a new card setting needs its
+  question / flag in both); a change to `cardforge.py`'s helpers must not break `cardforge_png.py`. Test both
+  scripts before releasing.
+- Every change the user asks for also goes into the offline tool where it applies (`cardforge.py`,
+  `cardforge_png.py`, and `card_template.html` / the collector, which ship with them), then gets released: bump
+  `VERSION` in `cardforge.py` (1.9 -> 1.10 ...) and the `?v=` on the web/ files in `index.html` (so browsers and
+  Cloudflare's 4-hour browser cache fetch the new ones), commit, push `main`, write short user-facing release notes and run
   `bash tools/release.sh <version> <notes.md>` (tags `v<version>`, creates the GitHub release with
   `cardforge-offline-<version>.zip`, refreshes `../5e-cardforge.zip`). Website-only changes (page layout,
   `web/app.*`, `index.html`) have no offline counterpart: say so, and release only when the offline files changed.

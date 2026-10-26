@@ -8,8 +8,8 @@
 set -euo pipefail
 
 REPO=8null8/cardforge
-FILES=(cardforge.py card_template.html 5etools-card-list.user.js README.md make_cards.sh make_cards.bat
-	calibrate_printer.sh calibrate_printer.bat)
+FILES=(cardforge.py cardforge_png.py card_template.html 5etools-card-list.user.js README.md
+	make_cards.sh make_cards.bat make_images.sh make_images.bat calibrate_printer.sh calibrate_printer.bat)
 
 die() { printf '\n\033[1;31mError: %s\033[0m\n' "$*" >&2; exit 1; }
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -17,6 +17,9 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 V="${1:-}"; NOTES="${2:-}"
 [ -n "$V" ] && [ -f "$NOTES" ] || die "usage: bash tools/release.sh <version> <notes.md>"
 grep -q "^VERSION = \"$V\"$" cardforge.py || die "set VERSION = \"$V\" in cardforge.py first"
+# the website's files carry ?v=<version> so browsers (and Cloudflare's browser cache) fetch the new ones
+[ "$(grep -o 'web/[a-z]*\.[a-z]*?v=[0-9.]*' index.html | grep -vc "?v=$V$")" = 0 ] \
+	|| die "set ?v=$V on the web/ files in index.html first"
 [ -z "$(git status --porcelain)" ] || die "commit your changes first"
 git fetch -q origin
 [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "push main first (HEAD must match origin/main)"

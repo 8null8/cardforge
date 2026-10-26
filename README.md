@@ -38,7 +38,10 @@ and gaps are filled with the next regular card, so no paper is wasted.
    **Print sheets** progress log folds the same way and opens again when you make cards. The finished sheets
    (*Your print sheets are ready* and below) get their own card that always stays open.
 3. **Printing settings** (remembered in your browser): paper size, double- or single-sided printer, which edge
-   the paper flips on, what long entries go on, index cards on paper or card stock, and the back-side offset.
+   the paper flips on, what long entries go on, index cards on paper or card stock, the back-side offset, and
+   **pictures** on creature and item cards: none, on the back (a creature's token or an item's picture in the
+   round medallion) or on the front (the 5e.tools artwork under the title; it takes room, so more cards may grow
+   to two sides). Pictures load from the 5etools image mirror on GitHub.
 4. **Make cards.** The site fetches each entry, measures the cards, asks once if some entries need more than
    two sides, and gives you print sheets (one, or fronts and backs for a single-sided printer). Each opens in a
    new tab; print it there, or choose *Save as PDF* to keep a copy. When the site runs on a Card Forge container
@@ -94,7 +97,7 @@ and sends lists there by default; change both at the top of the script if you ho
 **PDF downloads** come from a small service in the container (`hosting/pdf-service.py`, installed by the setup
 scripts together with Chromium, about 400 MB). Give the container at least 1 GB of memory
 (`pct set <ID> --memory 1024`). It only listens inside the container; nginx forwards `/api/pdf` to it, and pages are
-rendered with all network access blocked. `PDF=0` in front of the setup command leaves it out. On static hosts
+rendered with all network access blocked except the 5etools picture mirror on GitHub. `PDF=0` in front of the setup command leaves it out. On static hosts
 (GitHub Pages, Cloudflare Pages) there's no server, so the site simply doesn't show the button.
 
 Good to know: apart from PDF downloads, the server only hands out these files. Every visitor's list, settings and downloaded data stay in
@@ -158,8 +161,8 @@ from the [Releases page](https://github.com/8null8/cardforge/releases/latest) an
 
 * **Windows:** drag the exported `.txt` onto `make_cards.bat` (or double-click it and paste links).
 * **Linux:** `./make_cards.sh cardforge-list-2026-10-23.txt`
-Each time it runs it asks three quick questions: **paper size**, **double- or single-sided printer**,
-and **which edge the paper flips on** — plus, when some entries are long, how to print those
+Each time it runs it asks four quick questions: **paper size**, **double- or single-sided printer**,
+**which edge the paper flips on** and **pictures on creature and item cards** (none, back or front) — plus, when some entries are long, how to print those
 (folding card, 3×5 or 5×8 index card) and how you'll print index cards. Your answers are remembered, so next time you can just press
 Enter to keep them.
 * Or directly: `python cardforge.py list.txt` / `python cardforge.py "https://5e.tools/spells.html#fireball_phb"`
@@ -175,6 +178,7 @@ Options (only needed if you want to skip the questions, e.g. in a script):
 | `--duplex long` / `short` | which edge the paper flips on |
 | `--big fold` / `3x5` / `5x8` | format for long entries, all categories (spells, items, monsters, class features, other) |
 | `--index-on paper` / `stock` | cut index cards from paper, or print on index-card stock |
+| `--images off` / `back` / `front` | pictures on creature and item cards: none, in the medallion on the back, or under the title on the front |
 | `--no-ask` | don't ask anything; use your last answers |
 | `--min-font 7` | smallest text size before a card grows to two sides / foldable (default 6.5pt) |
 | `--gap 0.1` | add white space between cards (inches); default 0 = single cuts |

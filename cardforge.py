@@ -21,12 +21,13 @@ import shutil
 import subprocess
 import sys
 import time
+import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.8"
+VERSION = "1.9"
 SCRIPT_DIR = Path(__file__).resolve().parent
 TEMPLATE = SCRIPT_DIR / "card_template.html"
 
@@ -1781,9 +1782,32 @@ def parse_link(url):
     return page, frag, u
 
 
+# ----- pictures (monster tokens and the artwork 5e.tools shows for monsters and items)
+
+IMG_BASE = "https://raw.githubusercontent.com/5etools-mirror-3/5etools-img/main/"
+
+
+def img_url(href):
+    """An image href from the 5etools data -> a full address, or None."""
+    if not isinstance(href, dict):
+        return None
+    if href.get("type") == "external" and isinstance(href.get("url"), str) and href["url"]:
+        return href["url"]
+    if isinstance(href.get("path"), str) and href["path"]:
+        return IMG_BASE + urllib.parse.quote(href["path"])
+    return None
+
+
+def token_name(name):
+    """The file name 5e.tools gives a creature's token: accents dropped, Æ spelled out, no quotes."""
+    s = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", name))
+    return s.replace("Æ", "AE").replace("æ", "ae").replace('"', "")
+
+
 class Resolver:
-    def __init__(self, data):
+    def __init__(self, data, images=False):
         self.data = data
+        self.images = images   # look up pictures for monster and item cards
         self._items = None
 
     def _indexed(self, folder, key, source):
@@ -1823,11 +1847,13 @@ class Resolver:
             for e in self._indexed("bestiary", "monster", src):
                 if ent_hash(e) == h:
                     e = resolve_copy(copy.deepcopy(e), self._finder_indexed("bestiary", "monster"))
-                    return (page, e, "monster") if raw else build_monster(e, self.data)
+                    if raw:
+                        return page, e, "monster"
+                    return self._with_images(build_monster(e, self.data), "monster", e)
         elif page == "items.html":
             e, ctx = self.find_item(h)
             if e:
-                return (page, e, "item") if raw else build_item(e, self.data, ctx)
+                return (page, e, "item") if raw else self._with_images(build_item(e, self.data, ctx), "item", e)
         elif page in GENERIC:
             file, keys, *_ = GENERIC[page]
             d = self.data.get(file)
@@ -1849,6 +1875,59 @@ class Resolver:
             raise ValueError(f"'{page}' pages aren't supported yet (spells, items, bestiary, class features, feats, backgrounds, "
                              f"races, conditions, optional features, rewards, traps, objects, deities, languages, actions, rules are)")
         raise ValueError("couldn't find that entry in the 5e.tools data, its partnered/homebrew collection or prerelease content")
+
+    # ----- pictures
+    def _fluff_pool(self, kind, source):
+        source = source or ""
+        if kind == "monster":
+            idx = self.data.get("bestiary/fluff-index.json", optional=True) or {}
+            fn = next((f for s, f in idx.items() if s.lower() == source.lower()), None)
+            if fn:
+                return (self.data.get(f"bestiary/{fn}", optional=True) or {}).get("monsterFluff") or []
+            return (self.data.brew(source) or {}).get("monsterFluff") or []
+        pool = (self.data.get("fluff-items.json", optional=True) or {}).get("itemFluff") or []
+        if any((x.get("source") or "").lower() == source.lower() for x in pool):
+            return pool
+        return (self.data.brew(source) or {}).get("itemFluff") or []
+
+    def _find_fluff(self, kind, name, source):
+        def find(n, s):
+            return next((x for x in self._fluff_pool(kind, s)
+                         if (x.get("name") or "").lower() == (n or "").lower()
+                         and (x.get("source") or "").lower() == (s or "").lower()), None)
+        f = find(name, source)
+        return resolve_copy(copy.deepcopy(f), find) if f else None
+
+    def images_for(self, kind, e):
+        """{"art": artwork address, "token": round token address} (either may be None), or None if neither."""
+        fl = e.get("fluff") if isinstance(e.get("fluff"), dict) else None   # homebrew can carry its pictures inline
+        if not (fl and fl.get("images")) and e.get("hasFluffImages"):
+            fl = self._find_fluff(kind, e.get("name"), e.get("source"))
+        art = None
+        for im in (fl or {}).get("images") or []:
+            art = img_url(im.get("href")) if isinstance(im, dict) else None
+            if art:
+                break
+        token = None
+        if kind == "monster":
+            if isinstance(e.get("tokenUrl"), str) and e["tokenUrl"]:
+                token = e["tokenUrl"]
+            elif e.get("hasToken"):
+                t = e.get("token") if isinstance(e.get("token"), dict) else {}
+                token = IMG_BASE + urllib.parse.quote(
+                    f"bestiary/tokens/{t.get('source') or e.get('source')}/{token_name(t.get('name') or e['name'])}.webp")
+        return {"art": art, "token": token} if art or token else None
+
+    def _with_images(self, card, kind, e):
+        if self.images:
+            try:
+                im = self.images_for(kind, e)
+            except Exception as ex:
+                im = None
+                warn(f"couldn't look up the pictures for {e.get('name')}: {ex}")
+            if im:
+                card["img"] = im
+        return card
 
     # ----- spell scrolls: a spell link with ",cardforge:scroll~<scroll item hash>" (the hash may be empty)
     def _scroll_info(self, u, spell):
@@ -2329,7 +2408,7 @@ def make_pdf(html_path, pdf_path, browser):
     return pdf_path.exists() and pdf_path.stat().st_size > 1000
 
 
-SETTINGS_DEFAULT = {"paper": "letter", "split": False, "duplex": "long", "back_offset": [0.0, 0.0]}
+SETTINGS_DEFAULT = {"paper": "letter", "split": False, "duplex": "long", "images": "off", "back_offset": [0.0, 0.0]}
 
 PAPER_MM = {"letter": (215.9, 279.4), "a4": (210.0, 297.0)}
 
@@ -2489,7 +2568,7 @@ def ask_print_settings(a):
     except Exception:
         saved = dict(SETTINGS_DEFAULT)
     interactive_ok = not a.no_ask and sys.stdin is not None and sys.stdin.isatty()
-    missing = [k for k in ("paper", "split", "duplex") if getattr(a, k) is None]
+    missing = [k for k in ("paper", "split", "duplex", "images") if getattr(a, k, None) is None]
     if missing and interactive_ok:
         print("\nPrint settings (* = current choice, press Enter to keep it):")
         if a.paper is None:
@@ -2502,10 +2581,15 @@ def ask_print_settings(a):
             q = ("When you put the printed fronts back in the tray, which edge do you flip the stack over?"
                  if a.split else "Which edge does your printer flip the paper on?")
             a.duplex = ask(q, [("l", "long", "Long edge (most common)"), ("s", "short", "Short edge")], saved["duplex"])
-        save_settings({"paper": a.paper, "split": a.split, "duplex": a.duplex})
+        if getattr(a, "images", None) is None:
+            a.images = ask("Pictures on creature and item cards?",
+                           [("n", "off", "No pictures"),
+                            ("b", "back", "On the back, in the round medallion"),
+                            ("f", "front", "On the front, under the title (leaves less room for text)")], saved["images"])
+        save_settings({"paper": a.paper, "split": a.split, "duplex": a.duplex, "images": a.images})
         print()
-    for k in ("paper", "split", "duplex"):
-        if getattr(a, k) is None:
+    for k in ("paper", "split", "duplex", "images"):
+        if getattr(a, k, None) is None:
             setattr(a, k, saved[k])
 
 
@@ -2747,6 +2831,8 @@ def main(argv=None):
                        help="single-sided printer: separate FRONTS and BACKS files (asked if not given)")
     sides.add_argument("--double", dest="split", action="store_false",
                        help="double-sided printer: one file with fronts and backs interleaved")
+    ap.add_argument("--images", choices=["off", "back", "front"],
+                    help="pictures on creature and item cards: off, on the back (in the medallion) or on the front (asked if not given)")
     ap.add_argument("--no-ask", action="store_true", help="never ask questions; use saved/default settings")
     ap.add_argument("--calibrate", action="store_true",
                     help="make a printer alignment test page, then enter what you read to correct the back side")
@@ -2776,6 +2862,8 @@ def main(argv=None):
         if not a.inputs and not a.calibrate:
             return 0
     if a.calibrate:
+        if a.images is None:   # no cards on a test page, so don't ask about pictures
+            a.images = load_settings().get("images", "off")
         ask_print_settings(a)
         return run_calibration(a)
 
@@ -2807,7 +2895,7 @@ def main(argv=None):
             extra = f"{u.scheme}://{u.netloc}{u.path.rsplit('/', 1)[0]}/data/"
             break
     data = Data(a.data_dir, a.refresh, extra, brew_dirs=a.brew_dir)
-    res = Resolver(data)
+    res = Resolver(data, images=a.images != "off")
     cards = []
     print(f"Fetching {len(links)} entr{'y' if len(links) == 1 else 'ies'}...")
     for link, n, want in links:
@@ -2837,7 +2925,7 @@ def main(argv=None):
     br = None if a.no_pdf and a.no_measure else find_browser()
 
     def render(path, cards_, extra_cfg):
-        cfg = {"paper": a.paper, "duplex": a.duplex, "minFont": a.min_font, "gap": a.gap,
+        cfg = {"paper": a.paper, "duplex": a.duplex, "minFont": a.min_font, "gap": a.gap, "images": a.images,
                "backOffset": load_settings().get("back_offset") or [0, 0], **extra_cfg}
         payload = json.dumps({"cards": cards_, "cfg": cfg}, ensure_ascii=False).replace("</", "<\\/")
         path.write_text(tpl.replace("/*__DATA__*/null", payload).replace("__PAGESIZE__", page), encoding="utf-8")

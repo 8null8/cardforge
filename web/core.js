@@ -1502,8 +1502,28 @@
   const nameIs = (x, n) => pyStr(get(x, "name", "")).toLowerCase() === pyStr(or(n, "")).toLowerCase();
   const srcIs = (x, s) => pyStr(get(x, "source", "")).toLowerCase() === pyStr(or(s, "")).toLowerCase();
 
+  // ----- pictures (monster tokens and the artwork 5e.tools shows for monsters and items)
+  const IMG_BASE = "https://raw.githubusercontent.com/5etools-mirror-3/5etools-img/main/";
+
+  /** an image href from the 5etools data -> a full address, or null */
+  function img_url(href) {
+    if (!isDict(href)) return null;
+    if (get(href, "type") === "external" && typeof get(href, "url") === "string" && href.url) return href.url;
+    if (typeof get(href, "path") === "string" && href.path) return IMG_BASE + quote(href.path);
+    return null;
+  }
+  /** the file name 5e.tools gives a creature's token: accents dropped, Æ spelled out, no quotes */
+  function token_name(name) {
+    const s = String(name).normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return s.replace(/Æ/g, "AE").replace(/æ/g, "ae").replace(/"/g, "");
+  }
+
   class Resolver {
-    constructor(data) { this.data = data; this._items = null; }
+    constructor(data, images = false) {
+      this.data = data;
+      this.images = images;   // look up pictures for monster and item cards
+      this._items = null;
+    }
 
     _indexed(folder, key, source) {
       const idx = this.data.get(`${folder}/index.json`);
@@ -1538,12 +1558,13 @@
         for (let e of this._indexed("bestiary", "monster", src)) {
           if (ent_hash(e) === h) {
             e = resolve_copy(deepCopy(e), this._finder_indexed("bestiary", "monster"));
-            return raw ? [page, e, "monster"] : build_monster(e, this.data);
+            if (raw) return [page, e, "monster"];
+            return this._with_images(build_monster(e, this.data), "monster", e);
           }
         }
       } else if (page === "items.html") {
         const [e, ctx] = this.find_item(h);
-        if (e) return raw ? [page, e, "item"] : build_item(e, this.data, ctx);
+        if (e) return raw ? [page, e, "item"] : this._with_images(build_item(e, this.data, ctx), "item", e);
       } else if (has(GENERIC, page)) {
         const [file, keys] = GENERIC[page];
         const d = this.data.get(file);
@@ -1568,6 +1589,55 @@
           + "races, conditions, optional features, rewards, traps, objects, deities, languages, actions, rules are)");
       }
       throw new Error("couldn't find that entry in the 5e.tools data, its partnered/homebrew collection or prerelease content");
+    }
+
+    // ----- pictures
+    _fluff_pool(kind, source) {
+      source = or(source, "");
+      if (kind === "monster") {
+        const idx = or(this.data.get("bestiary/fluff-index.json", true), {});
+        const hit = Object.entries(idx).find(([s]) => s.toLowerCase() === source.toLowerCase());
+        if (hit) return or(get(or(this.data.get(`bestiary/${hit[1]}`, true), {}), "monsterFluff"), []);
+        return or(get(or(this.data.brew(source), {}), "monsterFluff"), []);
+      }
+      const pool = or(get(or(this.data.get("fluff-items.json", true), {}), "itemFluff"), []);
+      if (pool.some(x => pyStr(or(get(x, "source"), "")).toLowerCase() === source.toLowerCase())) return pool;
+      return or(get(or(this.data.brew(source), {}), "itemFluff"), []);
+    }
+    _find_fluff(kind, name, source) {
+      const find = (n, s) => this._fluff_pool(kind, s).find(x =>
+        pyStr(or(get(x, "name"), "")).toLowerCase() === pyStr(or(n, "")).toLowerCase()
+        && pyStr(or(get(x, "source"), "")).toLowerCase() === pyStr(or(s, "")).toLowerCase()) || null;
+      const f = find(name, source);
+      return f ? resolve_copy(deepCopy(f), find) : null;
+    }
+    /** {art: artwork address, token: round token address} (either may be null), or null if neither */
+    images_for(kind, e) {
+      let fl = isDict(get(e, "fluff")) ? e.fluff : null;   // homebrew can carry its pictures inline
+      if (!(fl && T(get(fl, "images"))) && T(get(e, "hasFluffImages"))) fl = this._find_fluff(kind, get(e, "name"), get(e, "source"));
+      let art = null;
+      for (const im of or(get(or(fl, {}), "images"), [])) {
+        art = isDict(im) ? img_url(get(im, "href")) : null;
+        if (art) break;
+      }
+      let token = null;
+      if (kind === "monster") {
+        if (typeof get(e, "tokenUrl") === "string" && e.tokenUrl) token = e.tokenUrl;
+        else if (T(get(e, "hasToken"))) {
+          const t = isDict(get(e, "token")) ? e.token : {};
+          token = IMG_BASE + quote(`bestiary/tokens/${or(get(t, "source"), get(e, "source"))}/${token_name(or(get(t, "name"), e.name))}.webp`);
+        }
+      }
+      return art || token ? { art, token } : null;
+    }
+    _with_images(card, kind, e) {
+      if (this.images) {
+        let im = null;
+        try { im = this.images_for(kind, e); }
+        catch (ex) { rethrow(ex); warn(`couldn't look up the pictures for ${get(e, "name")}: ${ex.message || ex}`); }
+        if (im) card.img = im;
+      }
+      return card;
     }
 
     _scroll_info(u, spell) {
@@ -2022,9 +2092,10 @@
    *   text      the list (our .txt format)
    *   load      async (req) -> {ok, value, errors}: downloads one data file (see Data._download)
    *   onEntry   optional (msg) progress callback
+   *   images    true: look up pictures for monster and item cards (card.img = {art, token})
    * -> {cards, log: [{type: "ok"|"warn", text}]}
    */
-  async function build(text, { load, onEntry = () => {}, store = new Map(), local = null, maxFetches = 400 } = {}) {
+  async function build(text, { load, onEntry = () => {}, store = new Map(), local = null, maxFetches = 400, images = false } = {}) {
     WARN = [];
     const log = [];
     const flushWarn = () => { for (const w of WARN) log.push({ type: "warn", text: w }); WARN = []; };
@@ -2041,7 +2112,7 @@
       }
     }
     const data = new Data({ extraBase: extra, store, local });
-    const res = new Resolver(data);
+    const res = new Resolver(data, images);
     const cards = [];
     let fetches = 0;
     for (let li = 0; li < links.length; li++) {

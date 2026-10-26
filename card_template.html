@@ -69,6 +69,9 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
   display: flex; align-items: center; justify-content: center; font-size: 1em; padding: 0 .2em; box-shadow: 0 0 0 1.2pt var(--gold) inset; }
 .sub { font-style: italic; font-size: .95em; padding: .2em 0 .25em; border-bottom: .8pt solid var(--c); margin-bottom: .3em; }
 .hdr { margin-bottom: .3em; }
+/* the picture strip on the front (Pictures: on the front); a fixed height, so measuring doesn't wait for it */
+.art { height: .9in; flex: none; display: flex; justify-content: center; align-items: center; margin: 0 0 .3em; }
+.art img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .hdr:empty { display: none; }
 .sgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .18em .3em; }
 .sgrid > div { background: rgba(0,0,0,.045); border-radius: 2pt; padding: .15em .3em; font-size: .92em; }
@@ -196,6 +199,22 @@ const DATA = /*__DATA__*/null;
     eye: "M12 5 C6.5 5 2.8 9 1.5 12 C2.8 15 6.5 19 12 19 C17.5 19 21.2 15 22.5 12 C21.2 9 17.5 5 12 5 Z M12 8.2 a3.8 3.8 0 1 0 .01 0Z"
   };
 
+  // pictures: tokens suit the round medallion on the back, the artwork the strip on the front
+  const IMAGES = ["back", "front"].includes(cfg.images) ? cfg.images : "off";
+  function pic(card, where) {   // -> [address, isToken] or null
+    const im = card.img;
+    if (IMAGES !== where || !im) return null;
+    const first = where === "back" ? "token" : "art", second = where === "back" ? "art" : "token";
+    const src = im[first] || im[second];
+    return src ? [String(src).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"), src === im.token] : null;
+  }
+  // the picture inside the back's medallion (centre cx, cy; k = scale of the 250 x 350 design)
+  function medallionPic(p, id, cx, cy, k) {
+    const box = (p[1] ? 113 : 92) * k;   // a token fills the ring; artwork stays clear of the round edge
+    return `<clipPath id="${id}c"><circle cx="${cx}" cy="${cy}" r="${56.5 * k}"/></clipPath>
+      <image href="${p[0]}" x="${cx - box / 2}" y="${cy - box / 2}" width="${box}" height="${box}" preserveAspectRatio="xMidYMid meet" clip-path="url(#${id}c)"/>`;
+  }
+
   const SERIF = "Palatino Linotype, Book Antiqua, Palatino, P052, URW Palladio L, Georgia, DejaVu Serif, serif";
   function shade(hex, f) { // f<0 darker, f>0 lighter
     const n = parseInt(hex.replace("#", ""), 16);
@@ -220,6 +239,8 @@ const DATA = /*__DATA__*/null;
       f.append(node(`<div class="ttl"><span class="name">${escx(card.name)}</span>${badge}</div>`));
       f.append(node(`<div class="sub">${card.sub}</div>`));
       const h = div("hdr"); h.innerHTML = card.hdr || ""; f.append(h);
+      const fp = pic(card, "front");
+      if (fp) { const a = div("art"); if (!cfg.measure) a.innerHTML = `<img src="${fp[0]}" alt="">`; f.append(a); }
     } else {
       f.append(node(`<div class="ttl small"><span class="name">${escx(card.name)} <em>(cont.)</em></span></div>`));
     }
@@ -248,8 +269,10 @@ const DATA = /*__DATA__*/null;
     } else {
       center = `<g fill="${gold}" transform="translate(89 140) scale(3)"><path d="${icon}" fill-rule="evenodd"/></g>`;
     }
+    const bp = pic(card, "back");
+    if (bp) center = medallionPic(bp, id, 125, 178, 1);
     const below = b.big ? b.line : b.bigsub;
-    const below2 = b.big ? "" : b.line;
+    const below2 = b.big ? (bp ? `${b.bigsub} ${b.big}` : "") : b.line;   // the picture covers the big number: say it below
     // one line if it fits, else two (smaller), else two with the end cut off with "…"
     const L1 = below ? fitLines(below, 194, below2 ? 12 : 13, 8.5, { weight: 400, spacing: 1.5 }) : { px: 0, lines: [] };
     const lh1 = L1.px * 1.2;
@@ -350,6 +373,8 @@ const DATA = /*__DATA__*/null;
     } else {
       center = `<g fill="${gold}" transform="translate(${cx - 36 * k} ${cy - 38 * k}) scale(${3 * k})"><path d="${icon}" fill-rule="evenodd"/></g>`;
     }
+    const bp = pic(card, "back");
+    if (bp) center = medallionPic(bp, id, cx, cy, k);
 
     // title plate: type label, the entry's name, then school / size and type / rarity
     const label = (b.label || "").toUpperCase();
@@ -360,7 +385,7 @@ const DATA = /*__DATA__*/null;
     const name = card.name || "";
     const nm = fitLines(name, aw, 34 * u, 15 * u, { caps: true });
     const titleCase = x => String(x || "").toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
-    const subs = [b.big ? "" : titleCase(b.bigsub), b.line]
+    const subs = [b.big ? (bp ? `${titleCase(b.bigsub)} ${b.big}` : "") : titleCase(b.bigsub), b.line]
       .filter(x => x && x.toLowerCase() !== (b.label || "").toLowerCase() && x.toLowerCase() !== name.toLowerCase());
     const subText = [...new Set(subs)].join(" • ");
     const subParts = [...new Set(subs)], subOpts = { weight: 400, spacing: 1.2 * u };

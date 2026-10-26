@@ -6,7 +6,8 @@ exactly like the offline tool does.  nginx forwards /api/pdf to it; it only list
   GET  /api/pdf   -> {"ok": true} when Chromium is installed (the website then shows "Download PDF")
   POST /api/pdf   body = the sheet's HTML, header X-Filename = name for the download -> application/pdf
 
-The sheet is rendered with all network access blocked (it needs none) and one at a time.
+The sheet is rendered one at a time with all network access blocked, except for the 5etools picture mirror
+on GitHub (creature tokens and artwork when the sheet has pictures).
 """
 import json
 import os
@@ -41,8 +42,8 @@ def render(html: bytes) -> bytes:
             cmd = [chromium(), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
                    "--disable-extensions", "--disable-background-networking", "--no-pdf-header-footer",
                    "--print-to-pdf-no-header", "--virtual-time-budget=30000",
-                   # everything except this service (on loopback) goes to a dead proxy: no network for the page
-                   "--proxy-server=http://127.0.0.1:9",
+                   # everything except this service (on loopback) and the picture mirror goes to a dead proxy
+                   "--proxy-server=http://127.0.0.1:9", "--proxy-bypass-list=raw.githubusercontent.com",
                    f"--print-to-pdf={out}", f"http://127.0.0.1:{PORT}/job/{token}"]
             if hasattr(os, "geteuid") and os.geteuid() == 0:
                 cmd.insert(1, "--no-sandbox")

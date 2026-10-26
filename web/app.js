@@ -22,7 +22,7 @@
 
   // ------------------------------------------------------------------ settings
   const DEFAULTS = { paper: "letter", split: false, duplex: "long", big_spell: "fold", big_monster: "fold", big_item: "fold",
-    big_feature: "fold", big_other: "fold", index_stock: false, back_offset: [0, 0], min_font: 6.5, gap: 0, data_base: "" };
+    big_feature: "fold", big_other: "fold", index_stock: false, images: "off", back_offset: [0, 0], min_font: 6.5, gap: 0, data_base: "" };
   const S = Object.assign({}, DEFAULTS, LS.get("cf.settings", {}));
   const saveSettings = () => LS.set("cf.settings", S);
   const BIG_OPTS = [["fold", "Folding card"], ["3x5", "3×5 index card"], ["5x8", "5×8 index card"], ["each", "Ask each time"]];
@@ -33,6 +33,10 @@
     f.split.value = S.split ? "yes" : "no";
     f.duplex.value = S.duplex;
     f.stock.value = S.index_stock ? "yes" : "no";
+    f.images.value = S.images;
+    $("#images-note").textContent = { off: "",
+      back: "A creature's token, or an item's picture, in the round medallion on the back.",
+      front: "The picture from 5e.tools under the title. It takes some room, so more cards may grow to two sides." }[S.images] || "";
     for (const sel of f.querySelectorAll(".bigs select")) {
       if (!sel.options.length) for (const [v, t] of BIG_OPTS) sel.append(el("option", { value: v, text: t }));
       sel.value = S["big_" + sel.dataset.cat] || "fold";
@@ -51,6 +55,7 @@
     S.split = f.split.value === "yes";
     S.duplex = f.duplex.value || "long";
     S.index_stock = f.stock.value === "yes";
+    S.images = ["back", "front"].includes(f.images.value) ? f.images.value : "off";
     for (const sel of f.querySelectorAll(".bigs select")) S["big_" + sel.dataset.cat] = sel.value;
     const num = (id, d) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : d; };
     S.back_offset = [Math.round(num("#off-x", 0) * 100) / 100, Math.round(num("#off-y", 0) * 100) / 100];
@@ -362,7 +367,7 @@
     return TEMPLATE;
   }
   function pageHtml(tpl, cards, extra) {
-    const cfg = Object.assign({ paper: S.paper, duplex: S.duplex, minFont: S.min_font, gap: S.gap, backOffset: S.back_offset }, extra);
+    const cfg = Object.assign({ paper: S.paper, duplex: S.duplex, minFont: S.min_font, gap: S.gap, backOffset: S.back_offset, images: S.images }, extra);
     const payload = JSON.stringify({ cards, cfg }).replace(/<\//g, "<\\/");
     const size = { letter: "8.5in 11in", a4: "210mm 297mm" }[S.paper];
     return tpl.replace("/*__DATA__*/null", () => payload).replace("__PAGESIZE__", () => size);
@@ -496,7 +501,7 @@
       const tpl = await template();
       busy(`Getting ${entries.length} ${entries.length === 1 ? "entry" : "entries"} from 5e.tools…`);
       const run = entries.slice();
-      const { cards, log } = await C.build(toText(run), { load, store: STORE, onEntry: msg => { if (msg.startsWith("Downloading")) busy(msg); } });
+      const { cards, log } = await C.build(toText(run), { load, store: STORE, images: S.images !== "off", onEntry: msg => { if (msg.startsWith("Downloading")) busy(msg); } });
       endBusy();
       status.clear();
       for (const x of log) {

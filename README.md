@@ -152,7 +152,8 @@ advertising it.
 
 ## The offline tool (Python)
 
-Needs only Python 3.8+ (no extra packages). Works on Windows and Linux.
+Needs only Python 3.8+ (no extra packages). Works on Windows and Linux. Download `cardforge-offline-<version>.zip`
+from the [Releases page](https://github.com/8null8/cardforge/releases/latest) and unzip it anywhere.
 
 
 * **Windows:** drag the exported `.txt` onto `make_cards.bat` (or double-click it and paste links).

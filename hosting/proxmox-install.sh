@@ -43,7 +43,7 @@ push_site() {   # copy the site from this folder into container $1 and (re)insta
 	local ctid="$1" bundle
 	[ "$LOCAL" = 1 ] || die "run this from an unzipped Card Forge folder (or use: github <container id>)"
 	bundle="$(mktemp /tmp/cardforge-XXXX.tgz)"
-	tar -C "$ROOT" -czf "$bundle" index.html card_template.html 5etools-card-list.user.js README.md web hosting/container-setup.sh hosting/pdf-service.py
+	tar -C "$ROOT" -czf "$bundle" index.html card_template.html 5etools-card-list.user.js README.md web hosting/container-setup.sh hosting/cardforge-service.py cardforge.py
 	pct push "$ctid" "$bundle" /root/cardforge-site.tgz
 	rm -f "$bundle"
 	pct exec "$ctid" -- bash -c "set -e; rm -rf /root/cardforge-site; mkdir -p /root/cardforge-site; tar -xzf /root/cardforge-site.tgz -C /root/cardforge-site; SRC=/root/cardforge-site bash /root/cardforge-site/hosting/container-setup.sh"

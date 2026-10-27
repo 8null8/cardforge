@@ -52,6 +52,13 @@ def draw(cards, browser, pictures, scale):
     with tempfile.TemporaryDirectory() as td:
         path = Path(td) / "card-images.html"
         path.write_text(page, encoding="utf-8")
+        try:   # wait until the page has drawn every card (pictures and all)
+            with cf.Chrome(browser) as c:
+                tab = c.open(path.resolve().as_uri())
+                c.wait_for(tab, "!!window.CF_PNG", 300)
+                return json.loads(c.evaluate(tab, "JSON.stringify(window.CF_PNG)"))
+        except Exception as e:
+            cf.warn(f"drawing through the browser's DevTools didn't work ({e}); trying its simple mode")
         dom = cf.run_dom(path, browser)
     m = re.search(r"@@PNG@@(.*?)@@END@@", dom, re.S)
     return json.loads(html.unescape(m.group(1))) if m else None

@@ -14,6 +14,9 @@ Tampermonkey script).
   browser, as when you visit them.
 - **Download PDF** (only on Card Forge sites that offer it) sends the print sheet to that site's server to be turned
   into a PDF. The sheet is kept only in memory while the PDF is made and is deleted as soon as it has been sent back.
+- **The visitor count** at the bottom of a Card Forge site is a single number on its server. Your browser keeps a
+  "counted" mark so it's only counted once; to stop the number being inflated, the server also remembers, in memory
+  only and for a day, a scrambled (salted hash) form of the address that was counted. Nothing else is stored.
 - Like any web server, a Card Forge site's server keeps ordinary access logs (the visitor's IP address, the time and
   the page requested). They are not shared or used for anything else.
 - The browser extension asks for one permission, *storage*, to keep your list, and only runs on 5e.tools.

@@ -27,7 +27,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.11"
+VERSION = "1.12"
 SCRIPT_DIR = Path(__file__).resolve().parent
 TEMPLATE = SCRIPT_DIR / "card_template.html"
 
@@ -2536,10 +2536,203 @@ def find_browser():
     return None
 
 
+class Chrome:
+    """A headless Chrome / Edge / Chromium driven over the DevTools protocol, stdlib only: open a page, wait until it
+    says it's done, then print it or read from it. (Chrome's plain --print-to-pdf can't wait for a page that is still
+    working, e.g. on its pictures.) Talks over pipes on Linux and macOS, over a local WebSocket on Windows."""
+
+    def __init__(self, exe, args=(), env=None):
+        import tempfile
+        self.dir = tempfile.mkdtemp(prefix="cardforge-chrome-")
+        cmd = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+               f"--user-data-dir={self.dir}", *args]
+        if os.name != "nt" and hasattr(os, "geteuid") and os.geteuid() == 0:
+            cmd.insert(1, "--no-sandbox")   # Chrome refuses to run as root otherwise
+        self.seq, self.buf, self.sock = 0, bytearray(), None
+        if os.name != "nt" and not os.environ.get("CF_CDP_WEBSOCKET"):
+            r_ours, w_chrome = os.pipe()
+            r_chrome, w_ours = os.pipe()
+
+            def fds():   # Chrome reads commands from fd 3 and writes replies to fd 4
+                a, b = os.dup(r_chrome), os.dup(w_chrome)
+                os.dup2(a, 3)
+                os.dup2(b, 4)
+                os.set_inheritable(3, True)
+                os.set_inheritable(4, True)
+            self.proc = subprocess.Popen(cmd + ["--remote-debugging-pipe", "about:blank"], preexec_fn=fds, close_fds=False,
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+            os.close(r_chrome)
+            os.close(w_chrome)
+            self.rfd, self.wfd = r_ours, w_ours
+        else:
+            self.proc = subprocess.Popen(cmd + ["--remote-debugging-port=0", "about:blank"],
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+            port_file, end = Path(self.dir) / "DevToolsActivePort", time.time() + 30
+            while not (port_file.exists() and len(port_file.read_text().split()) >= 2):
+                if time.time() > end or self.proc.poll() is not None:
+                    raise RuntimeError("the browser didn't open its DevTools port")
+                time.sleep(0.1)
+            port, path = port_file.read_text().split()[:2]
+            self._ws_open("127.0.0.1", int(port), path)
+
+    # ----- transport: NUL-terminated JSON on the pipes, or WebSocket text frames
+    def _ws_open(self, host, port, path):
+        import base64
+        import socket
+        self.sock = socket.create_connection((host, port), timeout=30)
+        key = base64.b64encode(os.urandom(16)).decode()
+        self.sock.sendall((f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                           f"Sec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        while b"\r\n\r\n" not in self.buf:
+            self._more(30)
+        head, rest = bytes(self.buf).split(b"\r\n\r\n", 1)
+        if b" 101 " not in head.split(b"\r\n")[0] + b" ":
+            raise RuntimeError("the browser refused the DevTools connection")
+        self.buf = bytearray(rest)
+
+    def _more(self, timeout):
+        import select
+        src = self.sock if self.sock else self.rfd
+        if not select.select([src], [], [], max(0.0, timeout))[0]:
+            raise TimeoutError("the browser stopped answering")
+        chunk = self.sock.recv(1 << 16) if self.sock else os.read(self.rfd, 1 << 16)
+        if not chunk:
+            raise RuntimeError("the browser closed")
+        self.buf += chunk
+
+    def _take(self, n, end):
+        while len(self.buf) < n:
+            self._more(end - time.time())
+        out = bytes(self.buf[:n])
+        del self.buf[:n]
+        return out
+
+    def _send(self, text):
+        data = text.encode()
+        if not self.sock:
+            data += b"\0"
+            while data:
+                data = data[os.write(self.wfd, data):]
+            return
+        n, mask = len(data), os.urandom(4)
+        head = bytes([0x81]) + (bytes([0x80 | n]) if n < 126 else bytes([0x80 | 126]) + n.to_bytes(2, "big") if n < 65536
+                                else bytes([0x80 | 127]) + n.to_bytes(8, "big"))
+        self.sock.sendall(head + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(data)))
+
+    def _receive(self, end):
+        if not self.sock:
+            while b"\0" not in self.buf:
+                self._more(end - time.time())
+            i = self.buf.index(b"\0")
+            msg = bytes(self.buf[:i])
+            del self.buf[:i + 1]
+            return msg
+        msg = b""
+        while True:
+            b1, b2 = self._take(2, end)
+            n = b2 & 127
+            if n >= 126:
+                n = int.from_bytes(self._take(2 if n == 126 else 8, end), "big")
+            mask = self._take(4, end) if b2 & 128 else None
+            payload = self._take(n, end)
+            if mask:
+                payload = bytes(b ^ mask[i % 4] for i, b in enumerate(payload))
+            if b1 & 15 == 8:
+                raise RuntimeError("the browser closed")
+            if b1 & 15 in (9, 10):   # ping / pong
+                continue
+            msg += payload
+            if b1 & 128:
+                return msg
+
+    # ----- DevTools commands
+    def call(self, method, params=None, session=None, timeout=60):
+        self.seq += 1
+        msg = {"id": self.seq, "method": method, "params": params or {}}
+        if session:
+            msg["sessionId"] = session
+        self._send(json.dumps(msg))
+        end = time.time() + timeout
+        while True:
+            m = json.loads(self._receive(end))
+            if m.get("id") == self.seq:
+                if "error" in m:
+                    raise RuntimeError(f"{method}: {m['error'].get('message')}")
+                return m.get("result", {})
+
+    def open(self, url):
+        """A new tab showing url -> its session id."""
+        target = self.call("Target.createTarget", {"url": url})["targetId"]
+        return self.call("Target.attachToTarget", {"targetId": target, "flatten": True})["sessionId"]
+
+    def evaluate(self, session, expr, timeout=60):
+        r = self.call("Runtime.evaluate", {"expression": expr, "returnByValue": True, "awaitPromise": True}, session, timeout)
+        if r.get("exceptionDetails"):
+            raise RuntimeError(r["exceptionDetails"].get("text", "script error"))
+        return r.get("result", {}).get("value")
+
+    def wait_for(self, session, expr, timeout=90):
+        end = time.time() + timeout
+        while not self.evaluate(session, expr):
+            if time.time() > end:
+                raise TimeoutError("the page didn't finish in time")
+            time.sleep(0.2)
+
+    def pdf(self, session):
+        import base64
+        r = self.call("Page.printToPDF", {"printBackground": True, "preferCSSPageSize": True, "marginTop": 0,
+                                          "marginBottom": 0, "marginLeft": 0, "marginRight": 0}, session, timeout=180)
+        return base64.b64decode(r["data"])
+
+    def close(self):
+        try:
+            self.call("Browser.close", timeout=5)
+        except Exception:
+            pass
+        try:
+            self.proc.wait(timeout=10)
+        except Exception:
+            self.proc.kill()
+        for fd in (getattr(self, "rfd", None), getattr(self, "wfd", None)):
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
+        if self.sock:
+            self.sock.close()
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+
+
+# a print sheet is done once its pictures have their solid backgrounds (card_template.html); any other page once loaded
+# (a new tab shows about:blank for a moment before the page itself)
+PAGE_DONE = ("document.URL !== 'about:blank' && document.readyState === 'complete' && (!document.getElementById('sheets') "
+             "|| document.body.dataset.pictures === '1')")
+
+
+def print_page(browser, url, args=(), env=None, timeout=120):
+    """url -> PDF bytes, printed once the page is done (also used by hosting/cardforge-service.py)."""
+    with Chrome(browser, args, env) as c:
+        tab = c.open(url)
+        c.wait_for(tab, PAGE_DONE, timeout)
+        return c.pdf(tab)
+
+
 def make_pdf(html_path, pdf_path, browser):
     pdf_path = Path(pdf_path).resolve()
     if pdf_path.exists():
         pdf_path.unlink()
+    try:
+        pdf_path.write_bytes(print_page(browser, Path(html_path).resolve().as_uri()))
+        return True
+    except Exception as e:
+        warn(f"printing through the browser's DevTools didn't work ({e}); trying its simple print mode")
     cmd = [browser, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
            "--no-pdf-header-footer", "--print-to-pdf-no-header", "--virtual-time-budget=15000",
            f"--print-to-pdf={pdf_path}", Path(html_path).resolve().as_uri()]

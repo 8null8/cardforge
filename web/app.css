@@ -218,6 +218,7 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 .foot .addr code { background: rgba(0, 0, 0, .25); padding: .05rem .35rem; border-radius: 3px; }
 .foot .link { color: var(--card); text-decoration-color: rgba(255, 255, 255, .45); }
 .foot .small { margin-top: 1.4rem; font-size: .92rem; color: #b8c7bd; max-width: 56rem; }
+.foot .visits { margin-top: .5rem; font-size: .85rem; color: #93a89a; }
 
 /* toast */
 .toast { position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%); z-index: 20; display: flex; align-items: center; gap: 1rem;

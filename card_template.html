@@ -38,7 +38,7 @@ body.nogap .cell > .panel, body.nogap .cell > .fold, body.nogap .cell > .idxcard
 body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .fold { position: absolute; left: 0; top: 0; width: 5in; height: 3.5in; display: flex; }
 /* fold line: a light dashed seam between the two halves */
-.fold.outside::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: .6pt dashed rgba(0,0,0,.35); z-index: 2; }
+.fold.outside::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: .6pt dashed #a29d93; z-index: 2; }
 
 @media print {
   body { background: none; }
@@ -50,13 +50,15 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 #measure { position: absolute; left: -30in; top: 0; visibility: hidden; }
 
 /* ---------- card panel ---------- */
+/* Everything printed is a solid colour (shades are mixed with the paper colour, never see-through), so PDFs
+   need no transparency flattening when they're printed. Keep it that way: no rgba(), opacity or transparent. */
 .panel { --c: #444; width: 2.5in; height: 3.5in; position: relative; background: var(--paper); color: var(--ink);
   border-radius: .13in; overflow: hidden; font-family: var(--serif); line-height: 1.18; }
 .fold .panel.fl { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .fold .panel.fr { border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .panel .frame { position: absolute; inset: .075in; border: 1.4pt solid var(--c); border-radius: .09in;
   display: flex; flex-direction: column; padding: 0 .065in .03in; background:
-  radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.55), transparent 65%); }
+  radial-gradient(ellipse at 50% 0%, color-mix(in srgb, #fff 55%, var(--paper)), var(--paper) 65%); }
 .fold .panel.fl .frame { right: .035in; border-top-right-radius: .02in; border-bottom-right-radius: .02in; }
 .fold .panel.fr .frame { left: .035in; border-top-left-radius: .02in; border-bottom-left-radius: .02in; }
 
@@ -64,7 +66,7 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
   gap: .05in; border-radius: .06in .06in 0 0; }
 .ttl .name { flex: 1; font-size: 1.5em; font-weight: 700; font-variant: small-caps; letter-spacing: .02em; line-height: 1.02; }
 .ttl.small .name { font-size: 1.15em; }
-.ttl .name em { font-style: normal; font-weight: 400; opacity: .8; font-size: .8em; }
+.ttl .name em { font-style: normal; font-weight: 400; color: color-mix(in srgb, #fff 80%, var(--c)); font-size: .8em; }
 .ttl .badge { flex: none; min-width: 1.9em; height: 1.9em; border-radius: 50%; background: #fff; color: var(--c); font-weight: 700;
   display: flex; align-items: center; justify-content: center; font-size: 1em; padding: 0 .2em; box-shadow: 0 0 0 1.2pt var(--gold) inset; }
 .sub { font-style: italic; font-size: .95em; padding: .2em 0 .25em; border-bottom: .8pt solid var(--c); margin-bottom: .3em; }
@@ -74,18 +76,18 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .art img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .hdr:empty { display: none; }
 .sgrid { display: grid; grid-template-columns: 1fr 1fr; gap: .18em .3em; }
-.sgrid > div { background: rgba(0,0,0,.045); border-radius: 2pt; padding: .15em .3em; font-size: .92em; }
+.sgrid > div { background: color-mix(in srgb, #000 4.5%, var(--paper)); border-radius: 2pt; padding: .15em .3em; font-size: .92em; }
 .lbl { display: block; font-size: .78em; text-transform: uppercase; letter-spacing: .06em; color: var(--c); font-weight: 700; }
 .mat { font-size: .82em; font-style: italic; margin-top: .25em; }
 .scrollinfo { font-size: .86em; margin-bottom: .3em; padding: .12em .35em; border: .8pt dashed var(--c); border-radius: 2pt;
-  background: rgba(122, 74, 28, .08); text-align: center; }
+  background: color-mix(in srgb, #7a4a1c 8%, var(--paper)); text-align: center; }
 .cls { font-size: .78em; margin-top: .2em; color: #555; }
 .mline { font-size: .95em; }
 .mline b { color: var(--c); }
 /* creature stat blocks: every stat, trait and action sits in its own outlined, lightly shaded box */
 .mgrid { display: flex; flex-wrap: wrap; gap: .2em; margin-bottom: .2em; }
-.mgrid > div, .abil > div, .body .mbox { border: .6pt solid rgba(122, 31, 31, .5); border-color: color-mix(in srgb, var(--c) 50%, transparent);
-  background: rgba(0, 0, 0, .055); border-radius: 2.5pt; }
+.mgrid > div, .abil > div, .body .mbox { border: .6pt solid #b9887f; border-color: color-mix(in srgb, var(--c) 50%, var(--paper));
+  background: color-mix(in srgb, #000 5.5%, var(--paper)); border-radius: 2.5pt; }
 .mgrid > div { flex: 1 1 auto; padding: .1em .35em; font-size: .95em; }
 .mgrid b { color: var(--c); }
 .abil { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .2em; text-align: center; margin: 0 0 .1em; font-size: .86em; }
@@ -108,7 +110,7 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .body p.li.cont::before { content: ""; }
 .body p.li.cont { text-indent: 0; }
 .body p.ind { padding-left: .8em; margin-bottom: .15em; }
-.body p.inset, .body h4.inset { background: rgba(0,0,0,.05); padding: .15em .35em; margin-bottom: 0; }
+.body p.inset, .body h4.inset { background: color-mix(in srgb, #000 5%, var(--paper)); padding: .15em .35em; margin-bottom: 0; }
 .body p.quote { font-size: .95em; }
 .body p.r { text-align: right; }
 .body p.c { text-align: center; }
@@ -128,9 +130,9 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .body table.lst th, .body table.lst td { padding: .03em .18em; }
 .body table.lst td:first-child { font-weight: 600; }
 .body table.lst .nw { white-space: nowrap; }
-.body tbody tr:nth-child(odd) td { background: rgba(0,0,0,.05); }
+.body tbody tr:nth-child(odd) td { background: color-mix(in srgb, #000 5%, var(--paper)); }
 
-.foot { display: flex; justify-content: space-between; font-size: .72em; color: #7a7266; padding-top: .15em; border-top: .5pt solid rgba(0,0,0,.15); }
+.foot { display: flex; justify-content: space-between; font-size: .72em; color: #7a7266; padding-top: .15em; border-top: .5pt solid color-mix(in srgb, #000 15%, var(--paper)); }
 .panel.clipped .foot::after { content: " \2702"; }
 
 /* index cards (landscape) */
@@ -138,7 +140,7 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .panel.idx58 { width: 8in; height: 5in; border-radius: .12in; }
 .panel.idx .body { display: flex; gap: .16in; }
 .panel.idx .body > .col { flex: 1 1 0; min-width: 0; height: 100%; overflow: hidden; }
-.panel.idx .body > .col + .col { border-left: .5pt solid rgba(0,0,0,.12); padding-left: .16in; margin-left: -.08in; }
+.panel.idx .body > .col + .col { border-left: .5pt solid color-mix(in srgb, #000 12%, var(--paper)); padding-left: .16in; margin-left: -.08in; }
 .panel.idx .sgrid { grid-template-columns: repeat(4, 1fr); }
 .panel.idx .hdr .mline { display: inline-block; margin-right: 1.2em; }
 .panel.idx .mgrid > div { flex: 0 1 auto; }
@@ -159,7 +161,7 @@ body.nogap .panel, body.nogap .fold .panel { border-radius: 0; }
 .panel.png { --cols: 1; width: calc(2.5in + (var(--cols) - 1) * 2.2in); height: auto; min-height: 3.5in;
   display: flex; flex-direction: column; }
 .panel.png .frame { position: relative; inset: auto; flex: 1 1 auto; margin: .075in; }
-.panel.png .body { overflow: visible; column-count: var(--cols); column-gap: .18in; column-rule: .5pt solid rgba(0,0,0,.12); }
+.panel.png .body { overflow: visible; column-count: var(--cols); column-gap: .18in; column-rule: .5pt solid color-mix(in srgb, #000 12%, var(--paper)); }
 .panel.png .body .mbox, .panel.png .body h4 { break-inside: avoid; }
 .panel.png .body h4 { break-after: avoid; }
 
@@ -220,10 +222,10 @@ const DATA = /*__DATA__*/null;
     return src ? [String(src).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"), src === im.token] : null;
   }
   // the picture inside the back's medallion (centre cx, cy; k = scale of the 250 x 350 design)
-  function medallionPic(p, id, cx, cy, k) {
+  function medallionPic(p, id, cx, cy, k, bg) {   // bg: the medallion's solid colour, put behind see-through parts
     const box = (p[1] ? 113 : 92) * k;   // a token fills the ring; artwork stays clear of the round edge
     return `<clipPath id="${id}c"><circle cx="${cx}" cy="${cy}" r="${56.5 * k}"/></clipPath>
-      <image href="${p[0]}" x="${cx - box / 2}" y="${cy - box / 2}" width="${box}" height="${box}" preserveAspectRatio="xMidYMid meet" clip-path="url(#${id}c)"/>`;
+      <image href="${p[0]}" data-bg="${bg}" x="${cx - box / 2}" y="${cy - box / 2}" width="${box}" height="${box}" preserveAspectRatio="xMidYMid meet" clip-path="url(#${id}c)"/>`;
   }
 
   const SERIF = "Palatino Linotype, Book Antiqua, Palatino, P052, URW Palladio L, Georgia, DejaVu Serif, serif";
@@ -235,6 +237,27 @@ const DATA = /*__DATA__*/null;
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
   }
   const escx = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  function mix(a, b, t) {   // a over b at strength t, as one solid colour (instead of a see-through a)
+    const p = h => { const n = parseInt(h.replace("#", ""), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+    const A = p(a), B = p(b);
+    return "#" + A.map((v, i) => Math.round(v * t + B[i] * (1 - t)).toString(16).padStart(2, "0")).join("");
+  }
+  // A back's faint diagonal lines: 10% darker than the gradient they cross, painted with a darker copy of that
+  // gradient (not see-through black), so a printed PDF needs no transparency flattening. The background gradient
+  // is centred on (gx, gy) with radii grx x gry; lines run at 45 degrees, `step` apart, like the old pattern.
+  function backGradient(id, gx, gy, grx, gry, lt, dk, W, H, rx, step, sw) {
+    const tf = `gradientUnits="userSpaceOnUse" cx="0" cy="0" r="1" gradientTransform="translate(${gx} ${gy}) scale(${grx} ${gry})"`;
+    let d = "";
+    for (let c = step / 2 + Math.floor((-W / Math.SQRT2 - step / 2) / step) * step; c <= H / Math.SQRT2 + step; c += step)
+      d += `M${-H} ${-H + c * Math.SQRT2}L${W + H} ${W + H + c * Math.SQRT2}`;
+    return {
+      defs: `<radialGradient id="${id}" ${tf}><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${dk}"/></radialGradient>
+        <radialGradient id="${id}d" ${tf}><stop offset="0" stop-color="${mix("#000000", lt, .1)}"/><stop offset="1" stop-color="${mix("#000000", dk, .1)}"/></radialGradient>
+        <clipPath id="${id}k"><rect width="${W}" height="${H}" rx="${rx}"/></clipPath>`,
+      body: `<rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id})"/>
+      <path d="${d}" stroke="url(#${id}d)" stroke-width="${sw}" fill="none" clip-path="url(#${id}k)"/>`,
+    };
+  }
 
   function node(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
   function div(cls) { const d = document.createElement("div"); if (cls) d.className = cls; return d; }
@@ -281,7 +304,8 @@ const DATA = /*__DATA__*/null;
       center = `<g fill="${gold}" transform="translate(89 140) scale(3)"><path d="${icon}" fill-rule="evenodd"/></g>`;
     }
     const bp = pic(card, "back");
-    if (bp) center = medallionPic(bp, id, 125, 178, 1);
+    const disc = mix(dk, lt, .55), soft = op => mix(gold, mix(lt, dk, .5), op);   // solid stand-ins for see-through
+    if (bp) center = medallionPic(bp, id, 125, 178, 1, disc);
     const below = b.big ? b.line : b.bigsub;
     const below2 = b.big ? (bp ? `${b.bigsub} ${b.big}` : "") : b.line;   // the picture covers the big number: say it below
     // one line if it fits, else two (smaller), else two with the end cut off with "…"
@@ -294,23 +318,21 @@ const DATA = /*__DATA__*/null;
     const y2 = yDeco + 26 - (L2.lines.length - 1) * lh2 * 0.5;
     const belowSvg = L1.lines.map((t, i) => `<text x="125" y="${y1 + i * lh1}" text-anchor="middle" font-size="${L1.px}" letter-spacing="1.5" fill="#fff" font-family="${SERIF}">${escx(t)}</text>`).join("")
       + L2.lines.map((t, i) => `<text x="125" y="${y2 + i * lh2}" text-anchor="middle" font-size="${L2.px}" fill="${gold}" font-family="${SERIF}" letter-spacing="1">${escx(t)}</text>`).join("");
+    const bgd = backGradient(id, 125, 168, 175, 245, lt, dk, 250, 350, GAP > 0 ? 12 : 0, 14, 1);   // = cx 50% cy 48% r 70%
     const svg = `<svg viewBox="0 0 250 350" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
       <defs>
-        <radialGradient id="${id}" cx="50%" cy="48%" r="70%"><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${dk}"/></radialGradient>
-        <pattern id="${id}p" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <path d="M0 7 H14" stroke="#000" stroke-opacity=".10" stroke-width="1"/></pattern>
+        ${bgd.defs}
       </defs>
-      <rect width="250" height="350" rx="${GAP > 0 ? 12 : 0}" fill="url(#${id})"/>
-      <rect width="250" height="350" rx="${GAP > 0 ? 12 : 0}" fill="url(#${id}p)"/>
+      ${bgd.body}
       <g fill="none" stroke="${gold}">
         <rect x="9" y="9" width="232" height="332" rx="9" stroke-width="2.2"/>
-        <rect x="15" y="15" width="220" height="320" rx="6" stroke-width=".7" opacity=".7"/>
+        <rect x="15" y="15" width="220" height="320" rx="6" stroke-width=".7" stroke="${soft(.7)}"/>
         ${corner(15, 15, 1, 1)}${corner(235, 15, -1, 1)}${corner(15, 335, 1, -1)}${corner(235, 335, -1, -1)}
-        <path d="M70 66 H180 M95 72 H155" stroke-width=".8" opacity=".8"/>
-        <path d="M70 ${yDeco} H180 M95 ${yDeco + 6} H155" stroke-width=".8" opacity=".8"/>
+        <path d="M70 66 H180 M95 72 H155" stroke-width=".8" stroke="${soft(.8)}"/>
+        <path d="M70 ${yDeco} H180 M95 ${yDeco + 6} H155" stroke-width=".8" stroke="${soft(.8)}"/>
       </g>
       <text x="125" y="56" text-anchor="middle" font-size="${Math.min(15, 190 / Math.max(1, (b.label || "").length) / 0.9)}" letter-spacing="${(b.label || "").length > 12 ? 1.5 : 4}" fill="${gold}" font-family="${SERIF}" font-variant="small-caps">${escx((b.label || "").toUpperCase())}</text>
-      <circle cx="125" cy="178" r="72" fill="${dk}" fill-opacity=".55" stroke="${gold}" stroke-width="2.5"/>
+      <circle cx="125" cy="178" r="72" fill="${disc}" stroke="${gold}" stroke-width="2.5"/>
       <circle cx="125" cy="178" r="57" fill="none" stroke="${gold}" stroke-width=".8"/>
       <g stroke="${gold}" stroke-width="1">${ticks}</g>
       <path d="M125 100 l5 6 -5 6 -5 -6Z M125 244 l5 6 -5 6 -5 -6Z M47 178 l6 -5 6 5 -6 5Z M191 178 l6 -5 6 5 -6 5Z" fill="${gold}"/>
@@ -385,7 +407,8 @@ const DATA = /*__DATA__*/null;
       center = `<g fill="${gold}" transform="translate(${cx - 36 * k} ${cy - 38 * k}) scale(${3 * k})"><path d="${icon}" fill-rule="evenodd"/></g>`;
     }
     const bp = pic(card, "back");
-    if (bp) center = medallionPic(bp, id, cx, cy, k);
+    const disc = mix(dk, lt, .55), soft = op => mix(gold, mix(lt, dk, .5), op);   // solid stand-ins for see-through
+    if (bp) center = medallionPic(bp, id, cx, cy, k, disc);
 
     // title plate: type label, the entry's name, then school / size and type / rarity
     const label = (b.label || "").toUpperCase();
@@ -417,28 +440,24 @@ const DATA = /*__DATA__*/null;
     const yRuleBot = (y += sb.lines.length ? 15 * u : 17 * u);
     const shift = cy - y / 2;                                  // centre the whole plate vertically
     const nameSvg = nm.lines.map((ln, i) => `<text x="${acx}" y="${shift + nameBase + i * lineH}" text-anchor="middle" font-size="${nm.px}" font-weight="700" font-variant="small-caps" fill="#fff" font-family="${SERIF}"${nm.squeeze ? ` textLength="${aw}" lengthAdjust="spacingAndGlyphs"` : ""}>${escx(ln)}</text>`).join("");
-    const subSvg = sb.lines.map((ln, i) => `<text x="${acx}" y="${shift + subBase + i * subLineH}" text-anchor="middle" font-size="${sb.px}" letter-spacing="${1.2 * u}" fill="#fff" fill-opacity=".9" font-family="${SERIF}"${sb.squeeze ? ` textLength="${aw}" lengthAdjust="spacingAndGlyphs"` : ""}>${escx(ln)}</text>`).join("");
-    const rule = (y) => `<path d="M${acx - aw * 0.42} ${y} H${acx - 9 * u} M${acx + 9 * u} ${y} H${acx + aw * 0.42}" stroke="${gold}" stroke-width="${0.9 * u}" opacity=".85"/><path d="${diamond(acx, y, 4.5 * u)}" fill="${gold}"/>`;
+    const subSvg = sb.lines.map((ln, i) => `<text x="${acx}" y="${shift + subBase + i * subLineH}" text-anchor="middle" font-size="${sb.px}" letter-spacing="${1.2 * u}" fill="${mix("#ffffff", mix(lt, dk, .5), .9)}" font-family="${SERIF}"${sb.squeeze ? ` textLength="${aw}" lengthAdjust="spacingAndGlyphs"` : ""}>${escx(ln)}</text>`).join("");
+    const rule = (y) => `<path d="M${acx - aw * 0.42} ${y} H${acx - 9 * u} M${acx + 9 * u} ${y} H${acx + aw * 0.42}" stroke="${soft(.85)}" stroke-width="${0.9 * u}"/><path d="${diamond(acx, y, 4.5 * u)}" fill="${gold}"/>`;
 
+    const bgd = backGradient(id, cx, H / 2, 0.85 * W, 0.85 * H, lt, dk, W, H, rx, 14 * u, u);   // = cx, 50%, r 85%
     const svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
       <defs>
-        <radialGradient id="${id}" cx="${(cx / W) * 100}%" cy="50%" r="85%"><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${dk}"/></radialGradient>
-        <radialGradient id="${id}h" cx="${(acx / W) * 100}%" cy="50%" r="40%"><stop offset="0" stop-color="#fff" stop-opacity=".10"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
-        <pattern id="${id}p" width="${14 * u}" height="${14 * u}" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <path d="M0 ${7 * u} H${14 * u}" stroke="#000" stroke-opacity=".10" stroke-width="${u}"/></pattern>
+        ${bgd.defs}
       </defs>
-      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id})"/>
-      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id}p)"/>
-      <rect width="${W}" height="${H}" rx="${rx}" fill="url(#${id}h)"/>
+      ${bgd.body}
       <g fill="none" stroke="${gold}">
         <rect x="${9 * u}" y="${9 * u}" width="${W - 18 * u}" height="${H - 18 * u}" rx="${9 * u}" stroke-width="${2.2 * u}"/>
-        <rect x="${15 * u}" y="${15 * u}" width="${W - 30 * u}" height="${H - 30 * u}" rx="${6 * u}" stroke-width="${0.7 * u}" opacity=".7"/>
+        <rect x="${15 * u}" y="${15 * u}" width="${W - 30 * u}" height="${H - 30 * u}" rx="${6 * u}" stroke-width="${0.7 * u}" stroke="${soft(.7)}"/>
         ${corner(15 * u, 15 * u, 1, 1)}${corner(W - 15 * u, 15 * u, -1, 1)}${corner(15 * u, H - 15 * u, 1, -1)}${corner(W - 15 * u, H - 15 * u, -1, -1)}
-        <path d="M${xd} ${34 * u} V${cy - 12 * u} M${xd} ${cy + 12 * u} V${H - 34 * u}" stroke-width="${0.9 * u}" opacity=".8"/>
-        <path d="M${xd + 4 * u} ${52 * u} V${cy - 20 * u} M${xd + 4 * u} ${cy + 20 * u} V${H - 52 * u}" stroke-width="${0.5 * u}" opacity=".5"/>
+        <path d="M${xd} ${34 * u} V${cy - 12 * u} M${xd} ${cy + 12 * u} V${H - 34 * u}" stroke-width="${0.9 * u}" stroke="${soft(.8)}"/>
+        <path d="M${xd + 4 * u} ${52 * u} V${cy - 20 * u} M${xd + 4 * u} ${cy + 20 * u} V${H - 52 * u}" stroke-width="${0.5 * u}" stroke="${soft(.5)}"/>
       </g>
       <path d="${diamond(xd, cy, 7 * u)} ${diamond(xd, 30 * u, 4 * u)} ${diamond(xd, H - 30 * u, 4 * u)}" fill="${gold}"/>
-      <circle cx="${cx}" cy="${cy}" r="${72 * k}" fill="${dk}" fill-opacity=".55" stroke="${gold}" stroke-width="${2.5 * k}"/>
+      <circle cx="${cx}" cy="${cy}" r="${72 * k}" fill="${disc}" stroke="${gold}" stroke-width="${2.5 * k}"/>
       <circle cx="${cx}" cy="${cy}" r="${57 * k}" fill="none" stroke="${gold}" stroke-width="${0.8 * k}"/>
       <g stroke="${gold}" stroke-width="${k}">${ticks}</g>
       <path d="${diamond(cx, cy - 78 * k, 6 * k)} ${diamond(cx, cy + 78 * k, 6 * k)} ${diamond(cx - 78 * k, cy, 6 * k)} ${diamond(cx + 78 * k, cy, 6 * k)}" fill="${gold}"/>
@@ -865,6 +884,37 @@ const DATA = /*__DATA__*/null;
   document.getElementById("summary").innerHTML = sum;
   document.title = `Card Forge (${n})`;
   if (only) document.getElementById("onlynote").textContent = only === "fronts" ? " This file has the FRONTS only." : " This file has the BACKS only: put the printed fronts back in the tray and print this on the other side.";
+  // pictures with see-through parts (tokens, cut-out item art) get the solid colour behind them baked in, and are
+  // scaled to print size: then a printed PDF needs no transparency flattening (and stays small)
+  (async () => {
+    const made = new Map();
+    const solid = (src, bg, max) => {
+      const key = src + " " + bg;
+      if (!made.has(key)) made.set(key, (async () => {
+        const r = await fetch(src);
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const bmp = await createImageBitmap(await r.blob());
+        const f = Math.min(1, max / Math.max(bmp.width, bmp.height));
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(bmp.width * f)); c.height = Math.max(1, Math.round(bmp.height * f));
+        const g = c.getContext("2d");
+        g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
+        g.drawImage(bmp, 0, 0, c.width, c.height);
+        return c.toDataURL("image/jpeg", 0.9);
+      })());
+      return made.get(key);
+    };
+    const jobs = [];
+    for (const im of document.querySelectorAll("#sheets .art img"))   // a .9 in strip: 1000 px is over 300 dpi
+      jobs.push(solid(im.getAttribute("src"), "#f8f1e0", 1000).then(u => { im.src = u; return im.decode(); }).catch(() => {}));
+    for (const im of document.querySelectorAll("#sheets image[data-bg]"))   // a medallion of about 1.2 in
+      jobs.push(solid(im.getAttribute("href"), im.dataset.bg, 700).then(u => new Promise(done => {   // shown before printing
+        im.addEventListener("load", done, { once: true }); im.addEventListener("error", done, { once: true });
+        setTimeout(done, 5000); im.setAttribute("href", u);
+      })).catch(() => {}));
+    await Promise.all(jobs);
+    document.body.dataset.pictures = "1";
+  })();
   document.body.dataset.ready = "1";
 })();
 </script>

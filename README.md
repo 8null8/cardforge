@@ -102,13 +102,19 @@ Netlify, Cloudflare Pages or any other static host work the same way.
 The collector script updates itself from `https://cards.arcvein.org/5etools-card-list.user.js` (its `@updateURL`)
 and sends lists there by default; change both at the top of the script if you host Card Forge somewhere else.
 
-**PDF downloads** come from a small service in the container (`hosting/pdf-service.py`, installed by the setup
-scripts together with Chromium, about 400 MB). Give the container at least 1 GB of memory
-(`pct set <ID> --memory 1024`). It only listens inside the container; nginx forwards `/api/pdf` to it, and pages are
-rendered with all network access blocked except the 5etools picture mirror on GitHub. `PDF=0` in front of the setup command leaves it out. On static hosts
-(GitHub Pages, Cloudflare Pages) there's no server, so the site simply doesn't show the button.
+**PDF downloads and the visitor count** come from a small service in the container (`hosting/cardforge-service.py`,
+installed by the setup scripts; PDFs also need Chromium, about 400 MB). Give the container at least 1 GB of memory
+(`pct set <ID> --memory 1024`). It only listens inside the container; nginx forwards `/api/pdf` and `/api/visits` to
+it. PDFs are printed like the offline tool's, with all network access blocked except the 5etools picture mirror on
+GitHub. `PDF=0` in front of the setup command leaves out Chromium (the visitor count still works). The count at the
+bottom of the site counts each browser once, and each address at most once a day; it's a single number in
+`/var/lib/cardforge/visits.json`. On static hosts (GitHub Pages, Cloudflare Pages) there's no server, so the site
+simply shows neither.
 
-Good to know: apart from PDF downloads, the server only hands out these files. Every visitor's list, settings and downloaded data stay in
+**Flat PDFs:** every colour on the cards is solid and pictures get a solid background before printing, so the PDFs
+(website and offline tool) have no transparency for the printer to flatten.
+
+Good to know: apart from PDF downloads and the visitor count, the server only hands out these files. Every visitor's list, settings and downloaded data stay in
 their own browser. Card text belongs to its publishers, so keep a public copy for your group rather than
 advertising it.
 

@@ -902,6 +902,20 @@
     try { await navigator.clipboard.writeText(addr); toast("Address copied"); } catch (e) { toast(addr); }
   });
 
+  // ------------------------------------------------------------------ visitor count (sites with the site service)
+  (async () => {
+    try {   // each browser is counted once; later visits only read the number
+      const first = !LS.get("cf.counted", false);
+      const r = await fetch("api/visits", { method: first ? "POST" : "GET", cache: "no-store" });
+      if (!r.ok) return;
+      const n = (await r.json()).count;
+      if (!Number.isFinite(n) || n < 1) return;
+      if (first) LS.set("cf.counted", true);
+      $("#visits").textContent = `${n.toLocaleString()} visitor${n === 1 ? "" : "s"}`;
+      $("#visits").hidden = false;
+    } catch (e) { /* a static host: no counter */ }
+  })();
+
   showSettings();
   renderRows();
   checkImport();

@@ -4,7 +4,7 @@
 #
 #   sudo bash hosting/container-setup.sh          # run from the Card Forge folder
 #   sudo PORT=8080 bash hosting/container-setup.sh
-#   sudo PDF=0 bash hosting/container-setup.sh     # without the "Download PDF" service (saves ~400 MB)
+#   sudo PDF=0 bash hosting/container-setup.sh     # without "Download PDF" (no Chromium; saves ~400 MB)
 #
 # Run it again after unzipping a newer Card Forge to update the site. Nothing else is needed on the server:
 # the cards are made in each visitor's browser, which downloads the game data from 5e.tools itself.
@@ -30,47 +30,64 @@ if ! command -v nginx >/dev/null 2>&1; then
 	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends nginx
 fi
 
-# "Download PDF": a small local service that prints the sheets with headless Chromium
+# the site service (hosting/cardforge-service.py): the visitor count, and "Download PDF" when Chromium is installed
+if [ "$PDF" = 1 ] && { ! command -v chromium >/dev/null 2>&1 || ! fc-list 2>/dev/null | grep -qi "P052"; }; then
+	say "Installing Chromium for PDF downloads (one-time, about 400 MB)"
+	apt-get update || true
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends chromium fonts-urw-base35 fonts-dejavu-core python3 \
+		|| echo "  ! couldn't install Chromium - the site works without it, but has no Download PDF button" >&2
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+	say "Installing Python for the site service"
+	apt-get update || true
+	DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-minimal || true
+fi
 PDF_OK=0
-if [ "$PDF" = 1 ]; then
-	if ! command -v chromium >/dev/null 2>&1 || ! fc-list 2>/dev/null | grep -qi "P052"; then
-		say "Installing Chromium for PDF downloads (one-time, about 400 MB)"
-		apt-get update || true
-		DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends chromium fonts-urw-base35 fonts-dejavu-core python3 \
-			|| echo "  ! couldn't install Chromium - the site works without it, but has no Download PDF button" >&2
-	fi
-	if command -v chromium >/dev/null 2>&1 && [ -f "$SRC/hosting/pdf-service.py" ]; then
-		install -D -m 755 "$SRC/hosting/pdf-service.py" /usr/local/lib/cardforge/pdf-service.py
-		cat > /etc/systemd/system/cardforge-pdf.service <<'UNIT'
+[ "$PDF" = 1 ] && command -v chromium >/dev/null 2>&1 && PDF_OK=1
+SERVICE_OK=0
+if command -v python3 >/dev/null 2>&1 && [ -f "$SRC/hosting/cardforge-service.py" ]; then
+	# replaces the older PDF-only service
+	systemctl disable --now cardforge-pdf >/dev/null 2>&1 || true
+	rm -f /etc/systemd/system/cardforge-pdf.service /usr/local/lib/cardforge/pdf-service.py
+	install -D -m 755 "$SRC/hosting/cardforge-service.py" /usr/local/lib/cardforge/cardforge-service.py
+	install -D -m 644 "$SRC/cardforge.py" /usr/local/lib/cardforge/cardforge.py   # it prints PDFs like the offline tool
+	if [ "$PDF" = 1 ]; then CHROME_ENV=""; else CHROME_ENV="Environment=CF_NO_PDF=1"; fi
+	cat > /etc/systemd/system/cardforge-service.service <<UNIT
 [Unit]
-Description=Card Forge PDF service (headless Chromium)
+Description=Card Forge site service (visitor count, PDF downloads)
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /usr/local/lib/cardforge/pdf-service.py
+ExecStart=/usr/bin/python3 /usr/local/lib/cardforge/cardforge-service.py
 Restart=on-failure
 Nice=10
-Environment=CF_PDF_PORT=8090
+Environment=CF_PORT=8090
+$CHROME_ENV
+StateDirectory=cardforge
 
 [Install]
 WantedBy=multi-user.target
 UNIT
-		systemctl daemon-reload || true
-		systemctl enable cardforge-pdf >/dev/null 2>&1 || true
-		systemctl restart cardforge-pdf || true
-		PDF_OK=1
-	fi
+	systemctl daemon-reload || true
+	systemctl enable cardforge-service >/dev/null 2>&1 || true
+	systemctl restart cardforge-service || true
+	SERVICE_OK=1
 fi
-if [ "$PDF_OK" = 1 ]; then
-	PDF_NGINX='	location = /api/pdf {
+if [ "$SERVICE_OK" = 1 ]; then
+	API_NGINX='	location = /api/pdf {
 		proxy_pass http://127.0.0.1:8090;
 		proxy_read_timeout 180s;
 		client_max_body_size 40m;
 		add_header Cache-Control "no-store";
+	}
+	location = /api/visits {
+		proxy_pass http://127.0.0.1:8090;
+		proxy_set_header X-Real-IP $remote_addr;
+		add_header Cache-Control "no-store";
 	}'
 else
-	PDF_NGINX=''
-	systemctl disable --now cardforge-pdf >/dev/null 2>&1 || true
+	API_NGINX=''
+	systemctl disable --now cardforge-service >/dev/null 2>&1 || true
 fi
 
 say "Copying the site to $WEB"
@@ -101,7 +118,7 @@ server {
 		# always check for a newer version, so updates show up straight away
 		add_header Cache-Control "no-cache";
 	}
-$PDF_NGINX
+$API_NGINX
 }
 NGINX
 ln -sf /etc/nginx/sites-available/cardforge /etc/nginx/sites-enabled/cardforge

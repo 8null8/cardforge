@@ -18,9 +18,15 @@ Card Forge turns 5e.tools entries into printable cards. Two front ends share one
   upload to each store (`extension/PUBLISHING.md`). Keep it to GM_getValue/GM_setValue, or extend the wrapper.
 - Quick add (search by name): `search_entries` / `search` exist in both `cardforge.py` and `web/core.js` and must
   give identical results; they read 5etools' `search/index.json` (+ `index-partnered.json`) from GitHub.
-- `hosting/`: Proxmox LXC installer, nginx setup, the GitHub auto-update mode (`github-setup.sh`) and the
-  PDF service (`pdf-service.py`: headless Chromium behind nginx at `/api/pdf`; the site only shows Download PDF
-  when `GET api/pdf` answers `{"ok": true}`).
+- `hosting/`: Proxmox LXC installer, nginx setup, the GitHub auto-update mode (`github-setup.sh`) and the site
+  service (`cardforge-service.py`, systemd unit `cardforge-service`, behind nginx at `/api/pdf` and `/api/visits`):
+  PDF downloads (the site only shows Download PDF when `GET api/pdf` answers `{"ok": true}`) and the visitor count
+  (`/var/lib/cardforge/visits.json`). It imports `cardforge.py`, installed next to it, to print PDFs.
+- PDFs must stay flat (no transparency, so printers don't have to flatten them): `card_template.html` uses only
+  solid colours (mix shades with the paper via color-mix() / mix(), never rgba(), opacity or see-through SVG), and
+  bakes a solid background into pictures before printing (sets `body[data-pictures]` when done). PDFs are printed
+  through Chrome's DevTools (`Chrome` / `print_page` in `cardforge.py`), which waits for that flag. Check a PDF with
+  a scan for `/SMask`, `/ca` or `/CA` below 1, and `/S /Transparency`.
 
 Rules:
 

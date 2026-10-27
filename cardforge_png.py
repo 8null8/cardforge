@@ -74,7 +74,7 @@ def main(argv=None):
 
     inputs, pausing = a.inputs, False
     if not inputs:
-        inputs, pausing = cf.interactive(), True
+        inputs, pausing = cf.interactive(lambda: cf.Data(a.data_dir, a.refresh, brew_dirs=a.brew_dir)), True
         if not inputs:
             return 1
     pictures = ask_images(a)

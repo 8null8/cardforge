@@ -27,7 +27,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-VERSION = "1.10"
+VERSION = "1.11"
 SCRIPT_DIR = Path(__file__).resolve().parent
 TEMPLATE = SCRIPT_DIR / "card_template.html"
 
@@ -110,6 +110,24 @@ class Data:
                 raise FileNotFoundError(f"{p} not found in --data-dir")
         else:
             result = self._download([base + rel for base in self.bases], rel.replace("/", "__"), rel, optional)
+        self.mem[rel] = result
+        return result
+
+    def search_file(self, name, optional=False):
+        """A file from 5etools' search/ folder, which sits next to data/ (the quick-add search index)."""
+        rel = "search/" + name
+        if rel in self.mem:
+            return self.mem[rel]
+        result = None
+        if self.data_dir:
+            p = self.data_dir.parent / "search" / name
+            if p.exists():
+                result = json.loads(p.read_text(encoding="utf-8"))
+            elif not optional:
+                raise FileNotFoundError(f"{p} not found next to --data-dir")
+        else:
+            urls = [b[:b.rindex("/data/")] + "/" + rel for b in self.bases if "/data/" in b]
+            result = self._download(urls, rel.replace("/", "__"), rel, optional)
         self.mem[rel] = result
         return result
 
@@ -2351,10 +2369,127 @@ def read_inputs(args):
     return links
 
 
-def interactive():
+# --------------------------------------------------------------------------- quick add: find entries by name
+# 5e.tools' own search index (search/index.json, and index-partnered.json for partnered books). The numbers are
+# 5etools' Parser.CAT_ID_* categories; only the kinds Card Forge can make a card of are kept.
+SEARCH_CATS = {
+    1: ("bestiary.html", "Creature"), 2: ("spells.html", "Spell"), 3: ("backgrounds.html", "Background"),
+    4: ("items.html", "Item"), 6: ("conditionsdiseases.html", "Condition"), 7: ("feats.html", "Feat"),
+    8: ("optionalfeatures.html", "Eldritch Invocation"), 9: ("psionics.html", "Psionic"), 10: ("races.html", "Species"),
+    11: ("rewards.html", "Reward"), 12: ("variantrules.html", "Rule"), 14: ("deities.html", "Deity"),
+    15: ("objects.html", "Object"), 16: ("trapshazards.html", "Trap"), 17: ("trapshazards.html", "Hazard"),
+    19: ("cultsboons.html", "Cult"), 20: ("cultsboons.html", "Boon"), 21: ("conditionsdiseases.html", "Disease"),
+    22: ("optionalfeatures.html", "Metamagic"), 23: ("optionalfeatures.html", "Maneuver"),
+    26: ("optionalfeatures.html", "Maneuver"), 27: ("optionalfeatures.html", "Arcane Shot"),
+    28: ("optionalfeatures.html", "Optional Feature"), 29: ("optionalfeatures.html", "Fighting Style"),
+    30: ("classes.html", "Class Feature"), 32: ("optionalfeatures.html", "Pact Boon"),
+    33: ("optionalfeatures.html", "Elemental Discipline"), 34: ("optionalfeatures.html", "Artificer Infusion"),
+    37: ("optionalfeatures.html", "Rune"), 38: ("optionalfeatures.html", "Alchemical Formula"),
+    39: ("optionalfeatures.html", "Maneuver"), 41: ("classes.html", "Subclass Feature"), 42: ("actions.html", "Action"),
+    43: ("languages.html", "Language"), 47: ("charcreationoptions.html", "Character Option"),
+    49: ("conditionsdiseases.html", "Status"), 50: ("skills.html", "Skill"), 51: ("senses.html", "Sense"),
+}
+SEARCH_FIRST = (1, 2, 4)   # creatures, spells and items come before other kinds with the same name
+
+
+def search_norm(s):
+    """Lower case, no accents, words separated by single spaces."""
+    s = re.sub("[\u0300-\u036f]", "", unicodedata.normalize("NFD", str(s).lower()))
+    return " ".join(re.sub(r"[^a-z0-9]+", " ", s).split())
+
+
+def search_entries(data):
+    """Everything in the search index Card Forge can make a card of: [{name, kind, source, url, key, words, rank}].
+    rank orders equal matches: official books before partnered ones, creatures / spells / items before other kinds,
+    then the newest printing (dR = reprinted since)."""
+    out = []
+    for fn in ("index.json", "index-partnered.json"):
+        idx = data.search_file(fn, optional=fn != "index.json")
+        if not isinstance(idx, dict):
+            continue
+        srcs = {v: k for k, v in ((idx.get("m") or {}).get("s") or {}).items()}
+        abbr = {k.lower(): k for k in srcs.values()}
+        for e in idx.get("x") or []:
+            cat = SEARCH_CATS.get(e.get("c"))
+            if not cat or not e.get("u") or not e.get("n"):
+                continue
+            page, kind = cat
+            name, source = str(e["n"]), srcs.get(e.get("s"), "")
+            if page == "classes.html":   # "Fighter 2; Action Surge" -> the collector's exact-feature link
+                if not e.get("uh") or "; " not in name:
+                    continue
+                head, name = name.split("; ", 1)
+                p = [urllib.parse.unquote(x) for x in str(e["u"]).split("_")]
+                q = lambda x: urllib.parse.quote(x, safe="")
+                if e["c"] == 30 and len(p) >= 5:
+                    url = f"https://5e.tools/classes.html#{e['uh']},cardforge:cf~{q(name)}~{p[-2]}"
+                elif e["c"] == 41 and len(p) >= 7:
+                    url = f"https://5e.tools/classes.html#{e['uh']},cardforge:scf~{q(name)}~{p[-2]}~{q(p[-4])}~{q(p[-3])}"
+                else:
+                    continue
+                kind, source = f"{head} feature", abbr.get(p[-1], p[-1].upper())
+            else:
+                url = f"https://5e.tools/{page}#{e['u']}"
+            key = search_norm(name)
+            out.append({"name": name, "kind": kind, "source": source, "url": url, "key": key, "words": key.split(" "),
+                        "rank": (4 if fn != "index.json" else 0) + (0 if e["c"] in SEARCH_FIRST else 2) + (1 if e.get("dR") else 0)})
+    return out
+
+
+def search(entries, query, limit=30):
+    """Best matches first: the whole name, the start of it, the start of a word, every word's start, anywhere."""
+    q = search_norm(query)
+    if not q:
+        return []
+    qw = q.split(" ")
+    hits = []
+    for i, e in enumerate(entries):
+        k = e["key"]
+        if k == q:
+            sc = 0
+        elif k.startswith(q):
+            sc = 1
+        elif (" " + k).find(" " + q) >= 0:
+            sc = 2
+        elif all(any(w.startswith(x) for w in e["words"]) for x in qw):
+            sc = 3
+        elif q in k:
+            sc = 4
+        else:
+            continue
+        hits.append((sc, e["rank"], len(k), i))
+    hits.sort()
+    return [entries[h[3]] for h in hits[:limit]]
+
+
+def pick_by_name(entries, text):
+    """The paste prompt's name search: a link for the entry the user picks (with its copies), or None."""
+    m = re.match(r"^(\d+)\s*[x×]\s+(.+)$", text)
+    copies, query = (int(m.group(1)), m.group(2)) if m else (1, text)
+    hits = search(entries, query, 9)
+    if not hits:
+        print(f"  no match for '{query}'")
+        return None
+    if len(hits) > 1:
+        for i, h in enumerate(hits, 1):
+            print(f"   {i}. {h['name']} ({h['kind']}, {h['source']})")
+        try:
+            ans = input("   Which one? (number, Enter = 1, n = none) ").strip().lower()
+        except EOFError:
+            ans = "n"
+        if ans.startswith("n"):
+            return None
+        hits = [hits[int(ans) - 1]] if ans.isdigit() and 1 <= int(ans) <= len(hits) else hits[:1]
+    print(f"  + {hits[0]['name']} ({hits[0]['kind']}, {hits[0]['source']})" + (f"  x{copies}" if copies > 1 else ""))
+    return (f"{copies}x " if copies > 1 else "") + hits[0]["url"]
+
+
+def interactive(make_data=None):
+    """Read links, list files or (with make_data) names to search for, until an empty line."""
     print(f"5e CardForge {VERSION}")
-    print("Paste 5e.tools links (one per line), or the path to a .txt list. Empty line to finish.\n")
-    lines = []
+    print("Paste 5e.tools links (one per line) or the path to a .txt list" + (", or type a name to search for it" if make_data else "")
+          + ". Empty line to finish.\n")
+    lines, entries = [], None
     while True:
         try:
             s = input("> ").strip().strip('"').strip("'")
@@ -2362,6 +2497,18 @@ def interactive():
             break
         if not s:
             break
+        if make_data and "://" not in s and ".html#" not in s and not s.startswith("[") and not Path(s).exists():
+            if entries is None:
+                print("  (getting the 5e.tools index...)")
+                try:
+                    entries = search_entries(make_data())
+                except Exception as e:
+                    print(f"  ! couldn't get the 5e.tools index: {e}")
+                    entries = []
+            link = pick_by_name(entries, s)
+            if link:
+                lines.append(link)
+            continue
         lines.append(s)
     return lines
 
@@ -2910,7 +3057,7 @@ def main(argv=None):
     inputs = a.inputs
     pausing = False
     if not inputs:
-        inputs = interactive()
+        inputs = interactive(lambda: Data(a.data_dir, a.refresh, brew_dirs=a.brew_dir))
         pausing = True
         if not inputs:
             return 1

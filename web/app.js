@@ -188,6 +188,76 @@
     toast(added ? `Added ${added} ${added === 1 ? "entry" : "entries"}` + (dup ? ` (${dup} already in the list)` : "") : dup ? "Those are already in your list" : "No 5e.tools links found in that");
   }
 
+  // ------------------------------------------------------------------ quick add: search 5e.tools by name
+  // 5e.tools' own search index, downloaded on first use and kept for a week like the other data
+  let finder = null;
+  function searchEntries() {
+    if (!finder) {
+      finder = (async () => {
+        const data = new C.Data({ extraBase: S.data_base ? normBase(S.data_base) : null, store: STORE });
+        for (let i = 0; i < 6; i++) {
+          try { return C.search_entries(data); }
+          catch (e) { if (!(e instanceof C.NeedData)) throw e; STORE.set(e.req.key, await load(e.req)); }
+        }
+        throw new Error("too many downloads");
+      })();
+      finder.catch(() => { finder = null; });   // try again next time
+    }
+    return finder;
+  }
+  const findEl = $("#find"), hitsEl = $("#find-hits"), noteEl = $("#find-note");
+  let hits = [], cur = -1, findTimer = null, findSeq = 0;
+  const findNote = t => { noteEl.textContent = t || ""; noteEl.hidden = !t; };
+  const inList = url => entries.find(e => e.kind === "link" && e.url === url);
+  function renderHits() {
+    hitsEl.textContent = "";
+    hits.forEach((h, i) => {
+      const have = inList(h.url);
+      hitsEl.append(el("li", {}, el("button", { type: "button", class: "hit" + (i === cur ? " on" : "") + (have ? " added" : ""), "data-i": i },
+        el("span", { class: "hn", text: h.name }), el("span", { class: "hk", text: `${h.kind} · ${h.source}` }),
+        el("span", { class: "ha", text: have ? (have.copies > 1 ? `✓ ×${have.copies}` : "✓ Added") : "+ Add" }))));
+    });
+    hitsEl.hidden = !hits.length;
+  }
+  async function runSearch() {
+    const q = findEl.value, seq = ++findSeq;
+    if (!q.trim()) { hits = []; cur = -1; renderHits(); findNote(""); return; }
+    let all;
+    try {
+      if (!finder) findNote("Getting the 5e.tools index…");
+      all = await searchEntries();
+    } catch (e) {
+      if (seq === findSeq) findNote("Couldn't get the 5e.tools index. Check your connection, or paste links instead.");
+      return;
+    }
+    if (seq !== findSeq) return;
+    hits = C.search(all, q, 30); cur = hits.length ? 0 : -1;
+    findNote(hits.length ? "" : `Nothing called “${q.trim()}”. Official and partnered books are searchable; paste links for homebrew.`);
+    renderHits();
+  }
+  function quickAdd(h) {   // a second tap adds another copy
+    const have = inList(h.url);
+    if (have) { have.copies = (have.copies || 1) + 1; toast(`${h.name}: ${have.copies} copies`); }
+    else {
+      entries.push({ kind: "link", url: h.url, copies: 1, want: "", label: `${h.kind.length <= 30 ? h.kind : "Subclass feature"}: ${h.name}` });
+      toast(`Added ${h.name}`);
+    }
+    saveList(); renderRows(); renderHits();
+  }
+  findEl.addEventListener("focus", () => { searchEntries().catch(() => {}); }, { once: true });   // start the download early
+  findEl.addEventListener("input", () => { clearTimeout(findTimer); findTimer = setTimeout(runSearch, 120); });
+  findEl.addEventListener("keydown", ev => {
+    if (ev.key === "Escape") { findEl.value = ""; runSearch(); return; }
+    if (!hits.length) return;
+    if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+      ev.preventDefault();
+      cur = (cur + (ev.key === "ArrowDown" ? 1 : hits.length - 1)) % hits.length;
+      renderHits();
+      hitsEl.children[cur].scrollIntoView({ block: "nearest" });
+    } else if (ev.key === "Enter") { ev.preventDefault(); if (cur >= 0) quickAdd(hits[cur]); }
+  });
+  hitsEl.addEventListener("click", ev => { const b = ev.target.closest(".hit"); if (b) quickAdd(hits[+b.dataset.i]); });
+
   // list editing events
   $("#rows").addEventListener("change", ev => {
     const i = +ev.target.dataset.i;

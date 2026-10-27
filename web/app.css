@@ -119,6 +119,21 @@ select { padding-right: 1.4rem; max-width: 12.5rem; }
   background: rgba(212, 172, 85, .18); border: 3px dashed var(--brass-deep); border-radius: 3px; pointer-events: none; }
 .listcard.dragging .drop-hint { display: grid; }
 
+/* quick add: search 5e.tools by name, tap a result to add it */
+.finder { padding: .75rem 1.5rem .8rem; border-bottom: 1px solid var(--rule); background: #f6f4ec; }
+.finder input { width: 100%; font: inherit; font-size: 1.02rem; color: var(--ink); background: #fff; border: 1px solid #b9b2a6;
+  border-radius: 6px; padding: .5rem .7rem; }
+.find-note { margin: .45rem 0 0; font-size: .92rem; color: var(--muted); }
+.hits { list-style: none; margin: .45rem 0 0; padding: 0; max-height: 19rem; overflow-y: auto; border: 1px solid #ddd6c8;
+  border-radius: 6px; background: #fff; }
+.hits li + li { border-top: 1px solid #eee8dc; }
+.hit { width: 100%; display: flex; align-items: baseline; gap: .6rem; padding: .5rem .7rem; border: 0; background: none;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.hit:hover, .hit.on { background: #f3eedf; }
+.hit .hn { font: 500 1.08rem/1.2 var(--serif); }
+.hit .hk { flex: 1; min-width: 0; color: var(--muted); font-size: .9rem; }
+.hit .ha { flex: none; color: var(--ink-soft); font-size: .9rem; font-weight: 700; white-space: nowrap; }
+.hit.added .ha { color: var(--ok); }
 .adder, .texted { padding: 1rem 1.5rem 1.1rem; border-bottom: 1px solid var(--rule); background: #f6f4ec; }
 .adder label, .texted label { display: block; font-size: .95rem; color: var(--ink-soft); margin-bottom: .4rem; }
 .adder textarea, .texted textarea { width: 100%; font: .92rem/1.45 ui-monospace, Consolas, monospace; resize: vertical; }
@@ -224,7 +239,7 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
   .top { padding-top: 1.5rem; }
   .fan { width: 4.5rem; }
   .runlocal { margin-left: 0; flex: 1 1 100%; }
-  .icard-head, .ruled, .set-body, .adder, .texted, .chooser, .outputs { padding-left: 1rem; padding-right: 1rem; }
+  .icard-head, .ruled, .set-body, .adder, .texted, .chooser, .outputs, .finder { padding-left: 1rem; padding-right: 1rem; }
   .row { height: calc(var(--line) * 2); grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: var(--line) var(--line);
     grid-template-areas: "name name rm" "kind copies fmt"; gap: 0 .6rem; }
   .row .kind { grid-area: kind; }

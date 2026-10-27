@@ -12,7 +12,12 @@ Card Forge turns 5e.tools entries into printable cards. Two front ends share one
   draws each card as a PNG in the browser (SVG foreignObject -> canvas) for the website's *Make card images*
   button and `cardforge_png.py` alike.
 - `5etools-card-list.user.js`: the Tampermonkey list collector. Bump `@version` on every change - installed
-  copies update themselves from `https://cards.arcvein.org/5etools-card-list.user.js`.
+  copies update themselves from `https://cards.arcvein.org/5etools-card-list.user.js`. It is also the browser
+  extension (Chrome/Edge/Firefox): `python3 tools/build-extension.py` wraps it (GM_getValue/GM_setValue on the
+  extension's storage) into `dist/cardforge-collector-{chrome,firefox}-<@version>.zip`; extension updates need a new
+  upload to each store (`extension/PUBLISHING.md`). Keep it to GM_getValue/GM_setValue, or extend the wrapper.
+- Quick add (search by name): `search_entries` / `search` exist in both `cardforge.py` and `web/core.js` and must
+  give identical results; they read 5etools' `search/index.json` (+ `index-partnered.json`) from GitHub.
 - `hosting/`: Proxmox LXC installer, nginx setup, the GitHub auto-update mode (`github-setup.sh`) and the
   PDF service (`pdf-service.py`: headless Chromium behind nginx at `/api/pdf`; the site only shows Download PDF
   when `GET api/pdf` answers `{"ok": true}`).

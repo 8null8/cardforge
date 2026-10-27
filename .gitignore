@@ -7,3 +7,6 @@ __pycache__/
 *-index-cards*.pdf
 cardforge-printer-test*.html
 cardforge-printer-test*.pdf
+
+# extension packages (tools/build-extension.py)
+dist/

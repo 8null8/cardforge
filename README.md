@@ -27,7 +27,10 @@ and gaps are filled with the next regular card, so no paper is wasted.
 
 ## The website
 
-1. **Collect your picks on 5e.tools**, any of three ways:
+1. **Collect your picks**, any of four ways:
+   * **Quick add** at the top of *Your cards*: type a name (*fireball*, *goblin*, *action surge*) and tap a result
+     to add it; tap again for another copy. It searches everything Card Forge can print from the official and
+     partnered books (5e.tools' own search index, downloaded once and kept for a week). Works on phones too;
    * copy entry links from 5e.tools and paste them into Card Forge (or just press Ctrl+V on the page);
    * on a 5e.tools list page, pin entries and use **Download Pinned List**, then open that file in Card Forge
      (or drop it on the list);
@@ -109,7 +112,13 @@ Good to know: apart from PDF downloads, the server only hands out these files. E
 their own browser. Card text belongs to its publishers, so keep a public copy for your group rather than
 advertising it.
 
-## The list collector (Tampermonkey, optional)
+## The list collector (browser extension or Tampermonkey, optional)
+
+**As a browser extension** (Chrome, Edge, Firefox, Firefox for Android): install *Card Forge list collector* from
+the browser's add-on store once it's published, or build it yourself with `python3 tools/build-extension.py`
+(see `extension/PUBLISHING.md`). It's the same collector as the Tampermonkey script below, and works the same way.
+
+**As a Tampermonkey script:**
 
 1. Install the **Tampermonkey** browser extension.
 2. On your Card Forge site click **Install the collector** (bottom of the page); Tampermonkey shows its install
@@ -164,7 +173,8 @@ Needs only Python 3.8+ (no extra packages). Works on Windows and Linux. Download
 from the [Releases page](https://github.com/8null8/cardforge/releases/latest) and unzip it anywhere.
 
 
-* **Windows:** drag the exported `.txt` onto `make_cards.bat` (or double-click it and paste links).
+* **Windows:** drag the exported `.txt` onto `make_cards.bat` (or double-click it and paste links, or type names:
+  *fireball*, *2x goblin warrior*; it lists the matches to pick from).
 * **Linux:** `./make_cards.sh cardforge-list-2026-10-23.txt`
 Each time it runs it asks four quick questions: **paper size**, **double- or single-sided printer**,
 **which edge the paper flips on** and **pictures on creature and item cards** (none, back or front) — plus, when some entries are long, how to print those
@@ -334,6 +344,10 @@ rarity, creatures are dark red, spell scrolls are brown (`SCROLL_COLOR`), and cl
   Its image mode (`cfg.png`) draws each card as a PNG in the browser; the website and `cardforge_png.py` both use it.
 * `cardforge_png.py` (card images) imports `cardforge.py` for everything but the drawing: options, questions and
   fetching changes in `cardforge.py` must keep working there too.
+* Quick add / name search (`search_entries`, `search` in both `cardforge.py` and `web/core.js`) reads 5etools'
+  `search/index.json` and `index-partnered.json` and must give the same results in both.
+* The browser extension is generated from `5etools-card-list.user.js` by `tools/build-extension.py` (into `dist/`);
+  publishing steps are in `extension/PUBLISHING.md`.
 * `tests/parity/run_all.sh` builds about 17,000 entries with both and checks they come out identical:
   `CF_DATA=/path/to/5etools-src/data bash tests/parity/run_all.sh` (data from
   `git clone --depth 1 https://github.com/5etools-mirror-3/5etools-src`).

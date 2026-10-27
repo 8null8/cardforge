@@ -142,6 +142,24 @@
       this.mem[rel] = result;
       return result;
     }
+    /** a file from 5etools' search/ folder, which sits next to data/ (the quick-add search index) */
+    search_file(name, optional = false) {
+      const rel = "search/" + name;
+      if (has(this.mem, rel)) return this.mem[rel];
+      let result = null;
+      if (this.local) {
+        result = this.local.search ? this.local.search(name) : undefined;
+        if (result === undefined) {
+          if (!optional) throw new Error(`${name} not found next to --data-dir`);
+          result = null;
+        }
+      } else {
+        const urls = this.bases.filter(b => b.includes("/data/")).map(b => b.slice(0, b.lastIndexOf("/data/")) + "/" + rel);
+        result = this._download(urls, "search:" + rel, rel, optional);
+      }
+      this.mem[rel] = result;
+      return result;
+    }
     brewIndex() {
       if (this._brewIndex === null) {
         const idx = {};
@@ -2086,6 +2104,88 @@
       + `</style></head><body>${body}</body></html>`;
   }
 
+  // ------------------------------------------------------------------ quick add: find entries by name
+  // 5e.tools' own search index (search/index.json, and index-partnered.json for partnered books). The numbers are
+  // 5etools' Parser.CAT_ID_* categories; only the kinds Card Forge can make a card of are kept.
+  const SEARCH_CATS = {
+    1: ["bestiary.html", "Creature"], 2: ["spells.html", "Spell"], 3: ["backgrounds.html", "Background"],
+    4: ["items.html", "Item"], 6: ["conditionsdiseases.html", "Condition"], 7: ["feats.html", "Feat"],
+    8: ["optionalfeatures.html", "Eldritch Invocation"], 9: ["psionics.html", "Psionic"], 10: ["races.html", "Species"],
+    11: ["rewards.html", "Reward"], 12: ["variantrules.html", "Rule"], 14: ["deities.html", "Deity"],
+    15: ["objects.html", "Object"], 16: ["trapshazards.html", "Trap"], 17: ["trapshazards.html", "Hazard"],
+    19: ["cultsboons.html", "Cult"], 20: ["cultsboons.html", "Boon"], 21: ["conditionsdiseases.html", "Disease"],
+    22: ["optionalfeatures.html", "Metamagic"], 23: ["optionalfeatures.html", "Maneuver"],
+    26: ["optionalfeatures.html", "Maneuver"], 27: ["optionalfeatures.html", "Arcane Shot"],
+    28: ["optionalfeatures.html", "Optional Feature"], 29: ["optionalfeatures.html", "Fighting Style"],
+    30: ["classes.html", "Class Feature"], 32: ["optionalfeatures.html", "Pact Boon"],
+    33: ["optionalfeatures.html", "Elemental Discipline"], 34: ["optionalfeatures.html", "Artificer Infusion"],
+    37: ["optionalfeatures.html", "Rune"], 38: ["optionalfeatures.html", "Alchemical Formula"],
+    39: ["optionalfeatures.html", "Maneuver"], 41: ["classes.html", "Subclass Feature"], 42: ["actions.html", "Action"],
+    43: ["languages.html", "Language"], 47: ["charcreationoptions.html", "Character Option"],
+    49: ["conditionsdiseases.html", "Status"], 50: ["skills.html", "Skill"], 51: ["senses.html", "Sense"],
+  };
+  const SEARCH_FIRST = [1, 2, 4];   // creatures, spells and items come before other kinds with the same name
+
+  /** lower case, no accents, words separated by single spaces */
+  function search_norm(s) {
+    s = pyStr(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return s.replace(/[^a-z0-9]+/g, " ").trim();
+  }
+  /** urllib.parse.quote(s, safe="") */
+  const quote_all = s => encodeURIComponent(s).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+
+  /** everything in the search index Card Forge can make a card of: [{name, kind, source, url, key, words, rank}].
+   *  rank orders equal matches: official books before partnered ones, creatures / spells / items before other kinds,
+   *  then the newest printing (dR = reprinted since). */
+  function search_entries(data) {
+    const out = [];
+    for (const fn of ["index.json", "index-partnered.json"]) {
+      const idx = data.search_file(fn, fn !== "index.json");
+      if (!isDict(idx)) continue;
+      const srcs = {}, abbr = {};
+      for (const [k, v] of Object.entries(or(get(or(get(idx, "m"), {}), "s"), {}))) srcs[v] = k;
+      for (const k of Object.values(srcs)) abbr[k.toLowerCase()] = k;
+      for (const e of or(get(idx, "x"), [])) {
+        const cat = SEARCH_CATS[get(e, "c")];
+        if (!cat || !T(get(e, "u")) || !T(get(e, "n"))) continue;
+        let [page, kind] = cat, name = pyStr(e.n), source = or(srcs[get(e, "s")], ""), url;
+        if (page === "classes.html") {   // "Fighter 2; Action Surge" -> the collector's exact-feature link
+          if (!T(get(e, "uh")) || !name.includes("; ")) continue;
+          const head = name.slice(0, name.indexOf("; "));
+          name = name.slice(name.indexOf("; ") + 2);
+          const p = pyStr(e.u).split("_").map(x => { try { return decodeURIComponent(x); } catch (er) { return x; } });   // unquote
+          if (e.c === 30 && p.length >= 5) url = `https://5e.tools/classes.html#${e.uh},cardforge:cf~${quote_all(name)}~${p[p.length - 2]}`;
+          else if (e.c === 41 && p.length >= 7) url = `https://5e.tools/classes.html#${e.uh},cardforge:scf~${quote_all(name)}~${p[p.length - 2]}~${quote_all(p[p.length - 4])}~${quote_all(p[p.length - 3])}`;
+          else continue;
+          kind = `${head} feature`; source = or(abbr[p[p.length - 1]], p[p.length - 1].toUpperCase());
+        } else url = `https://5e.tools/${page}#${e.u}`;
+        const key = search_norm(name);
+        out.push({ name, kind, source, url, key, words: key.split(" "),
+          rank: (fn !== "index.json" ? 4 : 0) + (SEARCH_FIRST.includes(e.c) ? 0 : 2) + (T(get(e, "dR")) ? 1 : 0) });
+      }
+    }
+    return out;
+  }
+  /** best matches first: the whole name, the start of it, the start of a word, every word's start, anywhere */
+  function search(entries, query, limit = 30) {
+    const q = search_norm(query);
+    if (!q) return [];
+    const qw = q.split(" "), hits = [];
+    entries.forEach((e, i) => {
+      const k = e.key;
+      let sc;
+      if (k === q) sc = 0;
+      else if (k.startsWith(q)) sc = 1;
+      else if ((" " + k).includes(" " + q)) sc = 2;
+      else if (qw.every(x => e.words.some(w => w.startsWith(x)))) sc = 3;
+      else if (k.includes(q)) sc = 4;
+      else return;
+      hits.push([sc, e.rank, k.length, i]);
+    });
+    hits.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2] || a[3] - b[3]);
+    return hits.slice(0, limit).map(h => entries[h[3]]);
+  }
+
   // ------------------------------------------------------------------ the whole run
   /**
    * Build the cards for a list.
@@ -2159,7 +2259,7 @@
     ListSpec, LootSpec, FORMAT_TAGS, calibration_pages, calibration_html, PAPER_MM, fmt_mm,
     // building blocks (tests)
     tx, inline, build_spell, build_monster, build_item, build_generic, build_class_feature, build_list_card, build_loot_card,
-    parse_link, ent_hash, resolve_copy, warnings: () => WARN.slice(), clearWarnings: () => { WARN = []; },
+    parse_link, ent_hash, resolve_copy, search_entries, search, search_norm, warnings: () => WARN.slice(), clearWarnings: () => { WARN = []; },
   };
 
 

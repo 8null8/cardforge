@@ -34,10 +34,17 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 [hidden] { display: none !important; }
 
 /* ---------------------------------------------------------------- header */
-.top { max-width: 74rem; margin: 0 auto; padding: 2.25rem 1.25rem 1.5rem; display: flex; align-items: center; gap: 1.25rem; }
+.top { max-width: 74rem; margin: 0 auto; padding: 2.25rem 1.25rem 1.5rem; display: flex; flex-wrap: wrap; align-items: center; gap: 1.25rem; }
 .fan { width: 6.5rem; flex: none; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .35)); }
+.brand { flex: 1 1 14rem; min-width: 0; }
 .brand h1 { margin: 0; font: 700 clamp(2.4rem, 5vw, 3.4rem)/1 var(--serif); letter-spacing: .01em; color: var(--card); }
 .brand p { margin: .45rem 0 0; max-width: 40rem; color: #d9e3dc; font-size: 1.1rem; }
+/* "Run it locally": the offline version's latest release on GitHub */
+.runlocal { margin-left: auto; flex: none; display: flex; flex-direction: column; gap: .2rem; padding: .8rem 1.3rem;
+  border-radius: 8px; color: var(--brass); text-decoration: none; box-shadow: inset 0 0 0 2px var(--brass); }
+.runlocal:hover { background: rgba(212, 172, 85, .12); }
+.runlocal .rl-main { font: 700 1.35rem/1.1 var(--sans); }
+.runlocal .rl-sub { font-size: .95rem; color: #d9e3dc; }
 
 /* ---------------------------------------------------------------- the table */
 .table { max-width: 74rem; margin: 0 auto; padding: 0 1.25rem 2rem; display: grid; gap: 1.75rem;
@@ -216,6 +223,7 @@ details summary { cursor: pointer; font-size: .95rem; color: var(--ink-soft); pa
 @media (max-width: 40rem) {
   .top { padding-top: 1.5rem; }
   .fan { width: 4.5rem; }
+  .runlocal { margin-left: 0; flex: 1 1 100%; }
   .icard-head, .ruled, .set-body, .adder, .texted, .chooser, .outputs { padding-left: 1rem; padding-right: 1rem; }
   .row { height: calc(var(--line) * 2); grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: var(--line) var(--line);
     grid-template-areas: "name name rm" "kind copies fmt"; gap: 0 .6rem; }

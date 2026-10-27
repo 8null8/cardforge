@@ -36,3 +36,5 @@ Rules:
   `bash tools/release.sh <version> <notes.md>` (tags `v<version>`, creates the GitHub release with
   `cardforge-offline-<version>.zip`, refreshes `../5e-cardforge.zip`). Website-only changes (page layout,
   `web/app.*`, `index.html`) have no offline counterpart: say so, and release only when the offline files changed.
+  When such a change touches `web/` files, still give their `?v=` in `index.html` a new value (e.g. 1.10 -> 1.10.1)
+  so browsers fetch them; the next release sets it back to the plain version.

@@ -118,13 +118,7 @@ Good to know: apart from PDF downloads and the visitor count, the server only ha
 their own browser. Card text belongs to its publishers, so keep a public copy for your group rather than
 advertising it.
 
-## The list collector (browser extension or Tampermonkey, optional)
-
-**As a browser extension** (Chrome, Edge, Firefox, Firefox for Android): install *Card Forge list collector* from
-the browser's add-on store once it's published, or build it yourself with `python3 tools/build-extension.py`
-(see `extension/PUBLISHING.md`). It's the same collector as the Tampermonkey script below, and works the same way.
-
-**As a Tampermonkey script:**
+## The list collector (Tampermonkey, optional)
 
 1. Install the **Tampermonkey** browser extension.
 2. On your Card Forge site click **Install the collector** (bottom of the page); Tampermonkey shows its install
@@ -352,8 +346,6 @@ rarity, creatures are dark red, spell scrolls are brown (`SCROLL_COLOR`), and cl
   fetching changes in `cardforge.py` must keep working there too.
 * Quick add / name search (`search_entries`, `search` in both `cardforge.py` and `web/core.js`) reads 5etools'
   `search/index.json` and `index-partnered.json` and must give the same results in both.
-* The browser extension is generated from `5etools-card-list.user.js` by `tools/build-extension.py` (into `dist/`);
-  publishing steps are in `extension/PUBLISHING.md`.
 * `tests/parity/run_all.sh` builds about 17,000 entries with both and checks they come out identical:
   `CF_DATA=/path/to/5etools-src/data bash tests/parity/run_all.sh` (data from
   `git clone --depth 1 https://github.com/5etools-mirror-3/5etools-src`).
